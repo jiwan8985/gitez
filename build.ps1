@@ -1,4 +1,4 @@
-# gez 빌드 스크립트 (Windows PowerShell)
+﻿# gez 빌드 스크립트 (Windows PowerShell)
 # 사용법: .\build.ps1               → 현재 폴더에 gez.exe 빌드
 #         .\build.ps1 -Install      → PATH에 설치
 #         .\build.ps1 -Release      → 전 플랫폼 빌드 (dist/ 폴더)
@@ -7,6 +7,11 @@ param(
     [switch]$Install,
     [switch]$Release
 )
+
+# 한글 출력 인코딩 설정
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+chcp 65001 | Out-Null
 
 Set-Location $PSScriptRoot
 $BINARY = "gez"
