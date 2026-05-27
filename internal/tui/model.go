@@ -4,6 +4,8 @@ package tui
 import (
 	"fmt"
 	"gez/internal/git"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -35,6 +37,7 @@ func (f fileEntry) unstaged() bool { return f.xy[1] != ' ' }
 
 type refreshMsg struct{}
 type diffLoadedMsg string
+type flashMsg string
 
 // ── Model ─────────────────────────────────────────────────────────────────────
 
@@ -43,11 +46,11 @@ type Model struct {
 	activePanel   panel
 
 	// Files panel
-	files    []fileEntry
+	files      []fileEntry
 	fileCursor int
 
 	// Diff panel
-	diffVP   viewport.Model
+	diffVP    viewport.Model
 	diffReady bool
 
 	// Log panel
@@ -61,15 +64,20 @@ type Model struct {
 
 	// Transient message at bottom
 	flash string
+
+	// path to current executable (for ExecProcess sub-commands)
+	exe string
 }
 
 // New creates an initialised Model.
 func New() Model {
 	vp := viewport.New(0, 0)
 	vp.Style = lipgloss.NewStyle()
+	exe, _ := os.Executable()
 	return Model{
 		diffVP:      vp,
 		activePanel: panelFiles,
+		exe:         exe,
 	}
 }
 
@@ -101,6 +109,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ahead, m.behind = git.AheadBehind()
 		m.flash = ""
 		return m, m.loadDiffCmd()
+
+	case flashMsg:
+		m.flash = string(msg)
+		return m, nil
 
 	case diffLoadedMsg:
 		m.diffVP.SetContent(string(msg))
@@ -136,7 +148,28 @@ func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.flash = "새로고침 중…"
 		return *m, refresh()
 
-	// File navigation
+	// ── Sub-command launchers (ExecProcess) ───────────────────────────────
+	case "c":
+		// Commit wizard
+		return *m, m.execGez("commit")
+
+	case "p":
+		// Push
+		return *m, m.execGez("push")
+
+	case "P":
+		// Pull
+		return *m, m.execGez("pull")
+
+	case "b":
+		// Branch switch
+		return *m, m.execGez("branch", "switch")
+
+	case "s":
+		// Stash
+		return *m, m.execGez("stash")
+
+	// ── File navigation ───────────────────────────────────────────────────
 	case "up", "k":
 		if m.activePanel == panelFiles && m.fileCursor > 0 {
 			m.fileCursor--
@@ -161,7 +194,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			}
 		}
 
-	// Stage / unstage
+	// ── Stage / unstage ───────────────────────────────────────────────────
 	case " ":
 		if m.activePanel == panelFiles && len(m.files) > 0 {
 			f := m.files[m.fileCursor]
@@ -185,7 +218,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 
 	case "a":
-		// stage all
 		if _, err := git.Run("add", "-A"); err != nil {
 			m.flash = "stage all 실패: " + err.Error()
 		} else {
@@ -194,7 +226,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return *m, refresh()
 
 	case "u":
-		// unstage all
 		if _, err := git.Run("restore", "--staged", "."); err != nil {
 			m.flash = "unstage all 실패"
 		} else {
@@ -202,7 +233,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		return *m, refresh()
 
-	// Diff scroll when in diff panel
+	// ── Diff scroll ────────────────────────────────────────────────────────
 	case "pgup", "ctrl+u":
 		m.diffVP.HalfViewUp()
 	case "pgdown", "ctrl+d":
@@ -210,6 +241,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	return *m, nil
+}
+
+// execGez suspends TUI, runs `gez <args...>` as a subprocess, then refreshes.
+func (m *Model) execGez(args ...string) tea.Cmd {
+	exe := m.exe
+	if exe == "" {
+		exe = "gez"
+	}
+	c := exec.Command(exe, args...)
+	c.Stdin = os.Stdin
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return refreshMsg{}
+	})
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
@@ -249,7 +293,6 @@ func (m Model) loadDiffCmd() tea.Cmd {
 			out, err = git.Run("diff", "--", f.path)
 		}
 		if err != nil || out == "" {
-			// Untracked file: show cat-like output
 			out2, _ := git.Run("show", ":"+f.path)
 			if out2 != "" {
 				out = "(새 파일)\n" + out2
@@ -264,15 +307,12 @@ func (m Model) loadDiffCmd() tea.Cmd {
 // ── Layout helpers ────────────────────────────────────────────────────────────
 
 func (m *Model) resizePanels() {
-	// Layout: left 30% files | right 70% diff  (full width)
-	//         bottom log strip (fixed 8 lines)
 	logH := 8
-	mainH := m.height - logH - 3 // 3 = borders/statusbar
+	mainH := m.height - logH - 3
 	if mainH < 5 {
 		mainH = 5
 	}
-	leftW := m.width * 30 / 100
-	rightW := m.width - leftW - 3
+	rightW := m.width - (m.width * 30 / 100) - 3
 	if rightW < 10 {
 		rightW = 10
 	}
@@ -353,11 +393,11 @@ func (m Model) View() string {
 	logContent := m.renderLog(logH - 2)
 	logPanel := logBorder.Width(m.width - 2).Height(logH).Render(logContent)
 
-	// ── Status bar ────────────────────────────────────────────────────────────
+	// ── Status bar + help ─────────────────────────────────────────────────────
 	statusBar := m.renderStatusBar()
-
-	// ── Help bar ─────────────────────────────────────────────────────────────
-	helpBar := styleDimText.Render("  space:stage/unstage  a:all  u:unstage-all  r:새로고침  tab:패널이동  q:종료")
+	helpBar := styleDimText.Render(
+		"  space:stage  a:all  u:unstage  c:커밋  p:push  P:pull  b:브랜치  s:stash  tab:패널  r:새로고침  q:종료",
+	)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		statusBar,
@@ -408,11 +448,9 @@ func (m Model) renderFiles(maxLines int) string {
 		lines = append(lines, fmt.Sprintf(" %s %s", xy, path))
 	}
 
-	// pad to fill
 	for len(lines) < maxLines {
 		lines = append(lines, "")
 	}
-
 	return strings.Join(lines, "\n")
 }
 
@@ -437,6 +475,9 @@ func (m Model) renderLog(maxLines int) string {
 	if end > len(m.logLines) {
 		end = len(m.logLines)
 	}
+	if m.logOffset >= len(m.logLines) {
+		return strings.Join(lines, "\n")
+	}
 
 	for _, l := range m.logLines[m.logOffset:end] {
 		parts := strings.SplitN(l, " ", 2)
@@ -449,11 +490,11 @@ func (m Model) renderLog(maxLines int) string {
 	return strings.Join(lines, "\n")
 }
 
-// colorizeDiff adds lipgloss colour to unified diff output.
+// colorizeDiff applies lipgloss colours to unified diff output.
 func colorizeDiff(s string) string {
-	addStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("82"))
-	delStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	hunkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+	addStyle    := lipgloss.NewStyle().Foreground(lipgloss.Color("82"))
+	delStyle    := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	hunkStyle   := lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 	headerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
 
 	var sb strings.Builder

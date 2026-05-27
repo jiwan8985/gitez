@@ -325,13 +325,29 @@ func printFlowHints(cfg *flow.Config, branchType string) {
 		case "hotfix":
 			fmt.Printf("    %s  hotfix 완료 → main+develop 머지 + 태그\n", ui.Cyan("gez flow hotfix finish"))
 		}
-	case flow.StrategyGitHubFlow, flow.StrategyTrunk:
+	case flow.StrategyGitHubFlow:
 		switch branchType {
 		case "main":
-			fmt.Printf("    %s  새 feature 시작\n", ui.Cyan("gez flow feature start <이름>"))
-		case "feature":
-			fmt.Printf("    %s  feature 완료 → main 머지\n", ui.Cyan("gez flow feature finish"))
-			fmt.Printf("    %s  원격에 publish (PR용)\n", ui.Cyan("gez flow feature publish"))
+			fmt.Printf("    %s  새 feature/버그픽스 브랜치 시작\n", ui.Cyan("gez flow feature start <이름>"))
+			fmt.Printf("    %s  커밋 & push\n", ui.Cyan("gez c  →  gez p"))
+			fmt.Printf("    %s  PR 생성 (브라우저 열기)\n", ui.Cyan("gez pr"))
+		case "feature", "other":
+			fmt.Printf("    %s  변경사항 커밋\n", ui.Cyan("gez c"))
+			fmt.Printf("    %s  원격에 push (PR용)\n", ui.Cyan("gez flow feature publish"))
+			fmt.Printf("    %s  PR 생성 (브라우저 열기)\n", ui.Cyan("gez pr"))
+			fmt.Printf("    %s  PR 머지 후 로컬 feature 완료\n", ui.Cyan("gez flow feature finish"))
+		}
+
+	case flow.StrategyTrunk:
+		switch branchType {
+		case "main":
+			fmt.Printf("    %s  단기 feature 브랜치 시작 (또는 main에 직접 커밋)\n", ui.Cyan("gez flow feature start <이름>"))
+			fmt.Printf("    %s  커밋 & push\n", ui.Cyan("gez c  →  gez p"))
+			fmt.Printf("    %s  최신 main 동기화\n", ui.Cyan("gez sync"))
+		case "feature", "other":
+			fmt.Printf("    %s  작업 완료 후 main에 즉시 머지\n", ui.Cyan("gez flow feature finish"))
+			fmt.Printf("    %s  또는 PR로 코드리뷰 후 머지\n", ui.Cyan("gez pr"))
+			fmt.Printf("    %s  feature → main 리베이스\n", ui.Cyan("gez rebase"))
 		}
 	}
 	fmt.Println()
