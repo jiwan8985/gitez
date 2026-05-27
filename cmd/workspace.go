@@ -435,6 +435,64 @@ func runWsBulk(label string, gitArgs ...string) {
 	fmt.Println()
 }
 
+// ── ws foreach ────────────────────────────────────────────────────────────────
+
+var wsForeachCmd = &cobra.Command{
+	Use:   "foreach <명령어>",
+	Short: "모든 워크스페이스 프로젝트에서 명령어 실행",
+	Args:  cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		command := strings.Join(args, " ")
+		runWsForeach(command)
+	},
+}
+
+func runWsForeach(command string) {
+	ws, err := workspace.Load()
+	if err != nil {
+		ui.Fail("워크스페이스 로드 실패: " + err.Error())
+		return
+	}
+	if len(ws.Projects) == 0 {
+		ui.Info("등록된 프로젝트가 없습니다")
+		return
+	}
+
+	fmt.Println()
+	fmt.Printf("  %s\n", ui.Bold(fmt.Sprintf("Workspace Foreach  —  %d개 프로젝트", len(ws.Projects))))
+	fmt.Printf("  %s  %s\n\n", ui.Dim("명령어:"), ui.Cyan(command))
+
+	ok, fail := 0, 0
+	for _, p := range ws.Projects {
+		fmt.Println(ui.Dim(strings.Repeat("─", 52)))
+		fmt.Printf("  %s  %s\n\n", ui.BoldCyan(p.Name), ui.Dim(workspace.HomePath(p.Path)))
+
+		if !git.IsRepoInDir(p.Path) {
+			ui.Warn("git 저장소가 아닙니다 — 건너뜀")
+			fail++
+			continue
+		}
+
+		// Execute the command with git -C
+		if err := git.RunLiveInDir(p.Path, strings.Fields(command)...); err != nil {
+			// Try as shell command if git command fails
+			ui.Warn(fmt.Sprintf("명령 실패: %s", err.Error()))
+			fail++
+			continue
+		}
+		ok++
+		fmt.Println()
+	}
+
+	fmt.Println(ui.Dim(strings.Repeat("─", 52)))
+	if fail == 0 {
+		ui.Success(fmt.Sprintf("전체 완료 (%d개)", ok))
+	} else {
+		ui.Warn(fmt.Sprintf("완료 %d개, 실패 %d개", ok, fail))
+	}
+	fmt.Println()
+}
+
 // ── init ──────────────────────────────────────────────────────────────────────
 
 func init() {
@@ -447,5 +505,6 @@ func init() {
 	wsCmd.AddCommand(wsFetchCmd)
 	wsCmd.AddCommand(wsSyncCmd)
 	wsCmd.AddCommand(wsGoCmd)
+	wsCmd.AddCommand(wsForeachCmd)
 	rootCmd.AddCommand(wsCmd)
 }

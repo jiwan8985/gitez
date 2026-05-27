@@ -167,10 +167,38 @@ func showDashboard() {
 		{"gez pr              ", "PR/MR 생성 URL을 브라우저로 열기"},
 		{"gez hook            ", "Git hooks 관리 (활성화·비활성화·프리셋)"},
 		{"gez config          ", "Git + gez 설정 조회/수정"},
+		{"gez archive         ", "저장소를 zip·tar.gz 파일로 내보내기"},
+		{"gez patch           ", "패치 파일 생성·적용 (format-patch·apply)"},
+		{"gez sparse          ", "Sparse checkout 관리 (모노레포)"},
+	})
+
+	printSection("검색 & 분석", [][2]string{
+		{"gez search          ", "커밋 메시지·코드 내용·파일명 검색"},
+		{"gez show [hash]     ", "커밋 상세 보기 (대화형 선택 가능)"},
+		{"gez stats           ", "저장소 통계 (기여자·활동·파일 분석)"},
+		{"gez file [경로]     ", "파일별 히스토리·blame·복원 통합 메뉴"},
+		{"gez log -i          ", "커밋 선택 후 show·cherry-pick·reset"},
+	})
+
+	printSection("커밋 관리", [][2]string{
+		{"gez squash [n]      ", "최근 N개 커밋을 하나로 합치기"},
+		{"gez amend           ", "마지막 커밋 수정 (메시지·파일 추가)"},
+		{"gez fixup           ", "특정 커밋의 fixup 커밋 생성 + autosquash"},
+		{"gez undo            ", "마지막 git 작업 취소 (reflog 기반)"},
+		{"gez restore         ", "파일을 HEAD·특정 커밋으로 복원"},
+		{"gez changelog       ", "Conventional Commits 기반 CHANGELOG 생성"},
+	})
+
+	printSection("환경 설정", [][2]string{
+		{"gez ignore          ", ".gitignore 관리 (패턴 추가·템플릿 15종)"},
+		{"gez alias           ", "Git alias 관리 (추가·삭제·프리셋)"},
+		{"gez doctor          ", "Git 환경 진단 (설정·SSH·버전·연결)"},
+		{"gez completion-install", "쉘 자동완성 설치 (bash·zsh·fish·PowerShell)"},
 	})
 
 	printSection("TUI 모드", [][2]string{
 		{"gez ui (tui)        ", "전체화면 TUI — stage·diff·log 한눈에"},
+		{"                    ", "  h:hunk staging  d:diff  c:커밋  p:push  P:pull  b:브랜치  l:로그"},
 		{"gez log -i          ", "커밋 선택 후 show·cherry-pick·reset"},
 	})
 
@@ -189,6 +217,7 @@ func showDashboard() {
 		{"gez ws              ", "전체 프로젝트 상태"},
 		{"gez ws add [경로]   ", "프로젝트 등록"},
 		{"gez ws pull/sync    ", "전체 프로젝트 pull/sync"},
+		{"gez ws foreach <cmd>", "모든 프로젝트에서 git 명령 실행"},
 		{"gez -p <이름> <cmd> ", "특정 프로젝트에서 명령 실행"},
 	})
 

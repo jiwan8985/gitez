@@ -58,9 +58,11 @@ type Model struct {
 	logOffset int
 
 	// Status bar
-	branch string
-	ahead  string
-	behind string
+	branch     string
+	ahead      string
+	behind     string
+	stashCount int
+	flowLabel  string
 
 	// Transient message at bottom
 	flash string
@@ -107,6 +109,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loadLog()
 		m.branch = git.CurrentBranch()
 		m.ahead, m.behind = git.AheadBehind()
+		m.stashCount = len(git.StashList())
+		m.flowLabel = loadFlowLabel()
 		m.flash = ""
 		return m, m.loadDiffCmd()
 
@@ -150,24 +154,30 @@ func (m *Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	// ── Sub-command launchers (ExecProcess) ───────────────────────────────
 	case "c":
-		// Commit wizard
 		return *m, m.execGez("commit")
-
 	case "p":
-		// Push
 		return *m, m.execGez("push")
-
 	case "P":
-		// Pull
 		return *m, m.execGez("pull")
-
 	case "b":
-		// Branch switch
 		return *m, m.execGez("branch", "switch")
-
 	case "s":
-		// Stash
 		return *m, m.execGez("stash")
+	case "h":
+		// Hunk-level interactive staging
+		if m.activePanel == panelFiles && len(m.files) > 0 {
+			f := m.files[m.fileCursor]
+			return *m, m.execGit("add", "-p", f.path)
+		}
+	case "d":
+		// Full diff for selected file
+		if m.activePanel == panelFiles && len(m.files) > 0 {
+			f := m.files[m.fileCursor]
+			return *m, m.execGit("diff", "--color=always", "--", f.path)
+		}
+	case "l":
+		// Interactive log
+		return *m, m.execGez("log", "-i")
 
 	// ── File navigation ───────────────────────────────────────────────────
 	case "up", "k":
@@ -251,9 +261,31 @@ func (m *Model) execGez(args ...string) tea.Cmd {
 	}
 	c := exec.Command(exe, args...)
 	c.Stdin = os.Stdin
-	return tea.ExecProcess(c, func(err error) tea.Msg {
-		return refreshMsg{}
-	})
+	return tea.ExecProcess(c, func(err error) tea.Msg { return refreshMsg{} })
+}
+
+// execGit suspends TUI, runs `git <args...>` directly, then refreshes.
+func (m *Model) execGit(args ...string) tea.Cmd {
+	c := exec.Command("git", args...)
+	c.Stdin = os.Stdin
+	return tea.ExecProcess(c, func(err error) tea.Msg { return refreshMsg{} })
+}
+
+// loadFlowLabel returns the current flow strategy short label (or "").
+func loadFlowLabel() string {
+	out, err := git.Run("config", "--local", "--get", "gez.flow.strategy")
+	if err != nil || strings.TrimSpace(out) == "" {
+		return ""
+	}
+	switch strings.TrimSpace(out) {
+	case "gitflow":
+		return "GitFlow"
+	case "githubflow":
+		return "GitHub Flow"
+	case "trunk":
+		return "Trunk"
+	}
+	return ""
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
@@ -396,7 +428,7 @@ func (m Model) View() string {
 	// ── Status bar + help ─────────────────────────────────────────────────────
 	statusBar := m.renderStatusBar()
 	helpBar := styleDimText.Render(
-		"  space:stage  a:all  u:unstage  c:커밋  p:push  P:pull  b:브랜치  s:stash  tab:패널  r:새로고침  q:종료",
+		"  space:stage  a:all  u:unstage  h:hunk  d:diff  c:커밋  p:push  P:pull  b:브랜치  s:stash  l:로그  tab:패널전환  r:새로고침  q:종료",
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -421,7 +453,19 @@ func (m Model) renderStatusBar() string {
 		flash = "  " + styleFlash.Render(m.flash)
 	}
 	left := "  " + branch + sync + flash
-	right := styleDimText.Render("gez TUI  ")
+
+	// Right side: stash count + flow label + title
+	right := ""
+	if m.stashCount > 0 {
+		right += lipgloss.NewStyle().Foreground(lipgloss.Color("220")).
+			Render(fmt.Sprintf("stash:%d  ", m.stashCount))
+	}
+	if m.flowLabel != "" {
+		right += lipgloss.NewStyle().Foreground(lipgloss.Color("75")).
+			Render(m.flowLabel+"  ")
+	}
+	right += styleDimText.Render("gez TUI  ")
+
 	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 0 {
 		gap = 0
