@@ -13,6 +13,15 @@ import (
 
 var projectFlag string
 
+// appVersion is set at startup via SetVersion (injected from main.go ldflags).
+var appVersion = "dev"
+
+// SetVersion lets main.go inject the build-time version string.
+func SetVersion(v string) {
+	appVersion = v
+	rootCmd.Version = v
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gez",
 	Short: "Git Easy — git 작업을 간편하게",
