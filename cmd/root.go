@@ -116,31 +116,60 @@ func showDashboard() {
 	fmt.Println(ui.Dim(strings.Repeat("─", 52)))
 	fmt.Println(ui.Bold("  명령어 목록"))
 	fmt.Println(ui.Dim(strings.Repeat("─", 52)))
-	cmds := [][2]string{
+	sep := ui.Dim(strings.Repeat("─", 52))
+	printSection := func(title string, rows [][2]string) {
+		fmt.Println(sep)
+		fmt.Printf("  %s\n", ui.Bold(title))
+		fmt.Println(sep)
+		for _, pair := range rows {
+			fmt.Printf("  %s  %s\n", ui.Cyan(pair[0]), ui.Dim(pair[1]))
+		}
+		fmt.Println()
+	}
+
+	printSection("기본 워크플로우", [][2]string{
 		{"gez s   (status)    ", "현재 상태 자세히 보기"},
 		{"gez c   (commit)    ", "커밋 마법사 (스테이징→메시지→push)"},
 		{"gez p   (push)      ", "원격에 푸시  [-f: force-with-lease]"},
 		{"gez pull            ", "원격에서 풀"},
-		{"gez f   (fetch)     ", "원격 정보 가져오기"},
 		{"gez sync            ", "fetch + pull (원격 동기화)"},
+		{"gez f   (fetch)     ", "원격 정보 가져오기"},
 		{"gez l   (log)       ", "커밋 그래프 로그"},
-		{"gez b   (branch)    ", "브랜치 관리 (전환·생성·삭제)"},
 		{"gez d   (diff)      ", "변경사항 diff 보기"},
-		{"gez stash           ", "스태시 관리 (push·pop·apply·drop)"},
-		{"gez reset           ", "언스테이징 / 커밋 되돌리기"},
+	})
+
+	printSection("브랜치 & 히스토리 관리", [][2]string{
+		{"gez b   (branch)    ", "브랜치 전환·생성·삭제"},
 		{"gez merge           ", "브랜치 병합"},
-		{"gez tag             ", "태그 관리 (생성·삭제·push)"},
+		{"gez rebase          ", "브랜치 리베이스 / interactive -i"},
+		{"gez cp (cherry-pick)", "다른 브랜치 커밋 가져오기"},
+		{"gez revert          ", "커밋 되돌리기 (히스토리 유지)"},
+		{"gez reset           ", "언스테이징 / soft·mixed·hard reset"},
+	})
+
+	printSection("복구 & 정리", [][2]string{
+		{"gez stash           ", "스태시 push·pop·apply·drop"},
+		{"gez reflog          ", "reflog 조회 + 사라진 커밋 복구"},
+		{"gez blame [파일]    ", "줄별 작성자·커밋 보기"},
+		{"gez clean           ", "untracked 파일·디렉토리 정리"},
+	})
+
+	printSection("저장소 & 원격 관리", [][2]string{
+		{"gez tag             ", "태그 생성·삭제·push"},
 		{"gez remote          ", "원격 저장소 관리"},
 		{"gez init [경로]     ", "새 git 저장소 초기화"},
 		{"gez clone <url>     ", "저장소 클론"},
-		{"gez ws              ", "워크스페이스 — 다중 프로젝트 관리"},
-	}
-	for _, pair := range cmds {
-		fmt.Printf("  %s  %s\n", ui.Cyan(pair[0]), ui.Dim(pair[1]))
-	}
-	fmt.Println()
+	})
+
+	printSection("워크스페이스 (다중 프로젝트)", [][2]string{
+		{"gez ws              ", "전체 프로젝트 상태"},
+		{"gez ws add [경로]   ", "프로젝트 등록"},
+		{"gez ws pull/sync    ", "전체 프로젝트 pull/sync"},
+		{"gez -p <이름> <cmd> ", "특정 프로젝트에서 명령 실행"},
+	})
+
 	fmt.Println(ui.Dim(strings.Repeat("─", 52)))
-	fmt.Printf("  %s  %s\n", ui.Dim("Tip:"), ui.Dim("gez -p <프로젝트명> <명령어>  →  다른 폴더에 있는 프로젝트에서 실행"))
+	fmt.Printf("  %s  %s\n", ui.Dim("Tip:"), ui.Dim("gez -p <프로젝트명> <명령어>  →  다른 폴더 프로젝트에서 바로 실행"))
 	fmt.Println()
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -147,6 +148,137 @@ func StashList() []string {
 		return nil
 	}
 	return strings.Split(out, "\n")
+}
+
+// ── Operation-state helpers ───────────────────────────────────────────────────
+
+// gitDir returns the path to the .git directory (works with worktrees too).
+func gitDir() string {
+	out, err := Run("rev-parse", "--git-dir")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}
+
+// IsRebaseInProgress reports whether a rebase is currently in progress.
+func IsRebaseInProgress() bool {
+	d := gitDir()
+	if d == "" {
+		return false
+	}
+	_, err1 := os.Stat(filepath.Join(d, "rebase-merge"))
+	_, err2 := os.Stat(filepath.Join(d, "rebase-apply"))
+	return err1 == nil || err2 == nil
+}
+
+// IsCherryPickInProgress reports whether a cherry-pick is in progress.
+func IsCherryPickInProgress() bool {
+	d := gitDir()
+	if d == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(d, "CHERRY_PICK_HEAD"))
+	return err == nil
+}
+
+// IsMergeInProgress reports whether a merge is in progress.
+func IsMergeInProgress() bool {
+	d := gitDir()
+	if d == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(d, "MERGE_HEAD"))
+	return err == nil
+}
+
+// IsRevertInProgress reports whether a revert is in progress.
+func IsRevertInProgress() bool {
+	d := gitDir()
+	if d == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(d, "REVERT_HEAD"))
+	return err == nil
+}
+
+// RecentCommits returns the last n commits as "hash  subject" one-liners.
+func RecentCommits(n int) []string {
+	out, err := Run("log", "--oneline", fmt.Sprintf("-n%d", n))
+	if err != nil || out == "" {
+		return nil
+	}
+	var result []string
+	for _, l := range strings.Split(out, "\n") {
+		if l != "" {
+			result = append(result, l)
+		}
+	}
+	return result
+}
+
+// CommitsBetween returns commits in the from..to range as one-liners.
+func CommitsBetween(from, to string) []string {
+	out, err := Run("log", "--oneline", fmt.Sprintf("%s..%s", from, to))
+	if err != nil || out == "" {
+		return nil
+	}
+	var result []string
+	for _, l := range strings.Split(out, "\n") {
+		if l != "" {
+			result = append(result, l)
+		}
+	}
+	return result
+}
+
+// ReflogEntries returns reflog entries as one-liners (newest first).
+func ReflogEntries(n int) []string {
+	out, err := Run("reflog", "--oneline", fmt.Sprintf("-n%d", n))
+	if err != nil || out == "" {
+		return nil
+	}
+	var result []string
+	for _, l := range strings.Split(out, "\n") {
+		if l != "" {
+			result = append(result, l)
+		}
+	}
+	return result
+}
+
+// TrackedFiles returns all files tracked by git in the current repository.
+func TrackedFiles() []string {
+	out, err := Run("ls-files")
+	if err != nil || out == "" {
+		return nil
+	}
+	var result []string
+	for _, l := range strings.Split(out, "\n") {
+		if l != "" {
+			result = append(result, l)
+		}
+	}
+	return result
+}
+
+// UntrackedFiles returns untracked files. Set withIgnored=true to include .gitignore'd files.
+func UntrackedFiles(withIgnored bool) []string {
+	args := []string{"ls-files", "--others", "--exclude-standard"}
+	if withIgnored {
+		args = append(args, "-i")
+	}
+	out, err := Run(args...)
+	if err != nil || out == "" {
+		return nil
+	}
+	var result []string
+	for _, l := range strings.Split(out, "\n") {
+		if l != "" {
+			result = append(result, l)
+		}
+	}
+	return result
 }
 
 // ── Multi-directory helpers (used by workspace commands) ──────────────────────
