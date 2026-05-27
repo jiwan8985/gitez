@@ -148,10 +148,12 @@ func showDashboard() {
 	})
 
 	printSection("복구 & 정리", [][2]string{
-		{"gez stash           ", "스태시 push·pop·apply·drop"},
+		{"gez stash           ", "스태시 push·pop·apply·drop (diff 미리보기 포함)"},
 		{"gez reflog          ", "reflog 조회 + 사라진 커밋 복구"},
 		{"gez blame [파일]    ", "줄별 작성자·커밋 보기"},
 		{"gez clean           ", "untracked 파일·디렉토리 정리"},
+		{"gez squash [n]      ", "최근 N개 커밋을 하나로 합치기"},
+		{"gez amend           ", "마지막 커밋 수정 (메시지·파일 추가)"},
 	})
 
 	printSection("저장소 & 원격 관리", [][2]string{
@@ -159,6 +161,17 @@ func showDashboard() {
 		{"gez remote          ", "원격 저장소 관리"},
 		{"gez init [경로]     ", "새 git 저장소 초기화"},
 		{"gez clone <url>     ", "저장소 클론"},
+		{"gez worktree (wt)   ", "워크트리 add·list·remove·prune"},
+		{"gez submodule (sub) ", "서브모듈 add·update·sync·foreach"},
+		{"gez bisect          ", "이진 탐색으로 버그 도입 커밋 찾기"},
+		{"gez pr              ", "PR/MR 생성 URL을 브라우저로 열기"},
+		{"gez hook            ", "Git hooks 관리 (활성화·비활성화·프리셋)"},
+		{"gez config          ", "Git + gez 설정 조회/수정"},
+	})
+
+	printSection("TUI 모드", [][2]string{
+		{"gez ui (tui)        ", "전체화면 TUI — stage·diff·log 한눈에"},
+		{"gez log -i          ", "커밋 선택 후 show·cherry-pick·reset"},
 	})
 
 	printSection("브랜치 전략 (Git Flow / GitHub Flow / Trunk)", [][2]string{

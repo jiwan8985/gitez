@@ -85,9 +85,12 @@ func runStashMenu() {
 
 	actions := []string{"스태시에 저장 (push)"}
 	if len(list) > 0 {
-		actions = append(actions, "최근 스태시 복원 + 제거 (pop)")
-		actions = append(actions, "스태시 선택해서 적용 (apply)")
-		actions = append(actions, "스태시 선택해서 삭제 (drop)")
+		actions = append(actions,
+			"최근 스태시 복원 + 제거 (pop)",
+			"스태시 선택해서 적용 (apply)",
+			"스태시 diff 미리보기",
+			"스태시 선택해서 삭제 (drop)",
+		)
 	}
 	actions = append(actions, "취소")
 
@@ -111,6 +114,19 @@ func runStashMenu() {
 	case strings.HasPrefix(action, "스태시 선택해서 적용"):
 		if idx := selectStash(list, "적용할 스태시 선택:"); idx >= 0 {
 			doStashRef(fmt.Sprintf("stash@{%d}", idx), false)
+		}
+
+	case strings.HasPrefix(action, "스태시 diff 미리보기"):
+		if idx := selectStash(list, "미리볼 스태시 선택:"); idx >= 0 {
+			ref := fmt.Sprintf("stash@{%d}", idx)
+			diff := git.StashShow(ref)
+			fmt.Println()
+			if diff == "" {
+				ui.Info("내용 없음")
+			} else {
+				fmt.Println(diff)
+			}
+			fmt.Println()
 		}
 
 	case strings.HasPrefix(action, "스태시 선택해서 삭제"):

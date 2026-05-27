@@ -112,17 +112,36 @@ func runBranchMenu() {
 // ── 목록 ──────────────────────────────────────────────────────────────────
 
 func runBranchList() {
-	current := git.CurrentBranch()
-	locals := git.LocalBranches()
+	details := git.BranchDetails()
 	remotes := git.RemoteBranches()
 
 	fmt.Println()
 	fmt.Println(ui.Bold("  로컬 브랜치:"))
-	for _, b := range locals {
-		if b == current {
-			fmt.Printf("    %s  %s\n", ui.Green("*"), ui.BoldCyan(b))
-		} else {
-			fmt.Printf("       %s\n", b)
+
+	if len(details) == 0 {
+		fmt.Println(ui.Dim("    브랜치 없음"))
+	} else {
+		// Compute name column width
+		nameW := 4
+		for _, d := range details {
+			if len(d.Name) > nameW {
+				nameW = len(d.Name)
+			}
+		}
+		for _, d := range details {
+			marker := "  "
+			name := fmt.Sprintf("%-*s", nameW, d.Name)
+			info := fmt.Sprintf("%s  %s  %s",
+				ui.Dim(d.Date),
+				ui.Yellow(d.Hash),
+				ui.Dim(d.Author))
+			subject := ui.Dim(truncate(d.Subject, 40))
+			if d.Current {
+				marker = ui.Green("* ")
+				name = ui.BoldCyan(fmt.Sprintf("%-*s", nameW, d.Name))
+				subject = d.Subject
+			}
+			fmt.Printf("    %s%s  %s  %s\n", marker, name, info, subject)
 		}
 	}
 

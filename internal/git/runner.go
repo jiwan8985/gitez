@@ -281,6 +281,173 @@ func UntrackedFiles(withIgnored bool) []string {
 	return result
 }
 
+// ── Branch detail helpers ─────────────────────────────────────────────────────
+
+// BranchInfo holds a branch and its latest commit metadata.
+type BranchInfo struct {
+	Name    string
+	Current bool
+	Hash    string
+	Date    string
+	Author  string
+	Subject string
+}
+
+// BranchDetails returns all local branches with last-commit metadata.
+func BranchDetails() []BranchInfo {
+	format := "%(refname:short)|%(HEAD)|%(objectname:short)|%(committerdate:short)|%(authorname)|%(subject)"
+	out, err := Run("branch", "--format="+format, "--sort=-committerdate")
+	if err != nil || out == "" {
+		return nil
+	}
+	var result []BranchInfo
+	for _, l := range strings.Split(out, "\n") {
+		parts := strings.SplitN(l, "|", 6)
+		if len(parts) < 6 {
+			continue
+		}
+		result = append(result, BranchInfo{
+			Name:    parts[0],
+			Current: parts[1] == "*",
+			Hash:    parts[2],
+			Date:    parts[3],
+			Author:  parts[4],
+			Subject: parts[5],
+		})
+	}
+	return result
+}
+
+// StashShow returns the unified diff of a stash entry (e.g. "stash@{0}").
+func StashShow(ref string) string {
+	out, _ := Run("stash", "show", "-p", "--stat", ref)
+	return out
+}
+
+// ── Worktree helpers ──────────────────────────────────────────────────────────
+
+// WorktreeEntry represents a single git worktree.
+type WorktreeEntry struct {
+	Path     string
+	Head     string
+	Branch   string
+	Bare     bool
+	Prunable bool
+}
+
+// WorktreeList returns all worktrees via `git worktree list --porcelain`.
+func WorktreeList() []WorktreeEntry {
+	out, err := Run("worktree", "list", "--porcelain")
+	if err != nil || out == "" {
+		return nil
+	}
+	var entries []WorktreeEntry
+	var cur WorktreeEntry
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			if cur.Path != "" {
+				entries = append(entries, cur)
+			}
+			cur = WorktreeEntry{Path: strings.TrimPrefix(line, "worktree ")}
+		case strings.HasPrefix(line, "HEAD "):
+			cur.Head = strings.TrimPrefix(line, "HEAD ")
+		case strings.HasPrefix(line, "branch "):
+			b := strings.TrimPrefix(line, "branch ")
+			cur.Branch = strings.TrimPrefix(b, "refs/heads/")
+		case line == "bare":
+			cur.Bare = true
+		case line == "prunable":
+			cur.Prunable = true
+		}
+	}
+	if cur.Path != "" {
+		entries = append(entries, cur)
+	}
+	return entries
+}
+
+// ── Submodule helpers ─────────────────────────────────────────────────────────
+
+// SubmoduleEntry represents a git submodule.
+type SubmoduleEntry struct {
+	Status string // " " sync, "+" newer, "-" not init, "U" conflict
+	Hash   string
+	Path   string
+	Desc   string
+}
+
+// SubmoduleList returns all submodules via `git submodule status`.
+func SubmoduleList() []SubmoduleEntry {
+	out, err := Run("submodule", "status")
+	if err != nil || out == "" {
+		return nil
+	}
+	var result []SubmoduleEntry
+	for _, l := range strings.Split(out, "\n") {
+		if len(l) < 2 {
+			continue
+		}
+		status := string(l[0])
+		rest := strings.TrimSpace(l[1:])
+		parts := strings.Fields(rest)
+		if len(parts) < 2 {
+			continue
+		}
+		hash := parts[0]
+		path := parts[1]
+		desc := ""
+		if len(parts) > 2 {
+			desc = strings.Trim(strings.Join(parts[2:], " "), "()")
+		}
+		result = append(result, SubmoduleEntry{
+			Status: status,
+			Hash:   hash,
+			Path:   path,
+			Desc:   desc,
+		})
+	}
+	return result
+}
+
+// ── Bisect helpers ────────────────────────────────────────────────────────────
+
+// IsBisectInProgress reports whether git bisect is active.
+func IsBisectInProgress() bool {
+	d := gitDir()
+	if d == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(d, "BISECT_LOG"))
+	return err == nil
+}
+
+// ── OpenBrowser opens a URL in the system default browser. ───────────────────
+
+func OpenBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch {
+	case isWindows():
+		cmd = exec.Command("cmd", "/c", "start", "", url)
+	case isMac():
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
+}
+
+func isWindows() bool {
+	return strings.Contains(strings.ToLower(os.Getenv("OS")), "windows") ||
+		os.PathSeparator == '\\'
+}
+
+func isMac() bool {
+	out, _ := exec.Command("uname").Output()
+	return strings.TrimSpace(string(out)) == "Darwin"
+}
+
 // ── Multi-directory helpers (used by workspace commands) ──────────────────────
 
 // IsRepoInDir checks if the specified directory is inside a git repository.
