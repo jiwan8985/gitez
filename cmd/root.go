@@ -161,6 +161,17 @@ func showDashboard() {
 		{"gez clone <url>     ", "저장소 클론"},
 	})
 
+	printSection("브랜치 전략 (Git Flow / GitHub Flow / Trunk)", [][2]string{
+		{"gez flow init                ", "전략 초기화 (최초 1회)"},
+		{"gez flow                     ", "전략 현황 + 다음 명령 힌트"},
+		{"gez flow feature start <이름>", "feature 브랜치 시작"},
+		{"gez flow feature finish      ", "feature 완료 → develop 머지"},
+		{"gez flow release start <버전>", "release 브랜치 시작 (Git Flow)"},
+		{"gez flow release finish      ", "release 완료 → main+develop+태그"},
+		{"gez flow hotfix start <이름> ", "hotfix 시작 (프로덕션 긴급 수정)"},
+		{"gez flow hotfix finish       ", "hotfix 완료 → main+develop+태그"},
+	})
+
 	printSection("워크스페이스 (다중 프로젝트)", [][2]string{
 		{"gez ws              ", "전체 프로젝트 상태"},
 		{"gez ws add [경로]   ", "프로젝트 등록"},
