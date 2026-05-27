@@ -15,6 +15,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ── detect subcommand ─────────────────────────────────────────────────────────
+
+var customDetectCmd = &cobra.Command{
+	Use:   "detect [경로]",
+	Short: "프로젝트 파일 분석 후 커스텀 명령어 자동 감지·등록",
+	Long: `프로젝트 디렉토리를 분석해 커스텀 명령어를 자동 감지합니다.
+
+지원 파일: Makefile, make.ps1, run.ps1, package.json,
+           Taskfile.yml, docker-compose.yml, Cargo.toml, go.mod`,
+	Args: cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		forceFlag, _ := cmd.Flags().GetBool("force")
+		runCustomDetect(args, forceFlag)
+	},
+}
+
 var customCmd = &cobra.Command{
 	Use:   "custom",
 	Short: "프로젝트별 커스텀 명령어 관리",
@@ -77,7 +93,102 @@ func init() {
 	customCmd.AddCommand(customAddCmd)
 	customCmd.AddCommand(customRemoveCmd)
 	customCmd.AddCommand(customRunCmd)
+	customDetectCmd.Flags().BoolP("force", "f", false, "확인 없이 바로 등록")
+	customCmd.AddCommand(customDetectCmd)
 	rootCmd.AddCommand(customCmd)
+}
+
+// ── Detect ────────────────────────────────────────────────────────────────────
+
+func runCustomDetect(args []string, force bool) {
+	// Resolve target directory
+	dir, _ := os.Getwd()
+	if len(args) > 0 {
+		dir = args[0]
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		ui.Fail("경로 확인 실패: " + err.Error())
+		return
+	}
+	dir = abs
+
+	// Resolve project name (from workspace if registered, else basename)
+	projName := filepath.Base(dir)
+	ws, _ := workspace.Load()
+	if ws != nil {
+		for _, p := range ws.Projects {
+			if filepath.Clean(p.Path) == filepath.Clean(dir) {
+				projName = p.Name
+				break
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("  %s  %s\n", ui.Bold("커스텀 명령어 자동 감지"), ui.Cyan(projName))
+	fmt.Printf("  %s  %s\n\n", ui.Dim("경로:"), ui.Dim(workspace.HomePath(dir)))
+
+	result := custom.DetectCommands(dir)
+
+	if len(result.Commands) == 0 {
+		ui.Fail("감지된 명령어 없음")
+		fmt.Println()
+		fmt.Printf("  %s\n", ui.Dim("다음 파일이 있으면 자동 감지됩니다:"))
+		for _, f := range []string{"Makefile", "make.ps1", "run.ps1", "package.json", "Taskfile.yml", "docker-compose.yml", "Cargo.toml", "go.mod"} {
+			fmt.Printf("    %s\n", ui.Dim(f))
+		}
+		fmt.Println()
+		fmt.Printf("  %s  %s\n\n", ui.Dim("수동 추가:"), ui.Cyan("gez custom add"))
+		return
+	}
+
+	fmt.Printf("  %s  %s\n\n", ui.Dim("분석 파일:"), strings.Join(result.Sources, ", "))
+	fmt.Printf("  %s\n\n", ui.Bold(fmt.Sprintf("감지된 명령어 (%d개):", len(result.Commands))))
+
+	// Show grouped preview
+	for _, g := range custom.GroupCommands(result.Commands) {
+		fmt.Printf("  %s\n", ui.BoldCyan("── "+g.Group+" ──"))
+		for _, c := range g.Commands {
+			cmdStr := c.Cmd()
+			if cmdStr == "" {
+				cmdStr = c.CmdUnix
+			}
+			fmt.Printf("    %-22s %s\n",
+				ui.Cyan(c.Name),
+				ui.Dim(c.Description))
+			fmt.Printf("    %-22s %s\n",
+				"",
+				ui.Dim("$ "+cmdStr))
+		}
+		fmt.Println()
+	}
+
+	// Confirm unless --force
+	if !force {
+		var ok bool
+		if err := survey.AskOne(&survey.Confirm{
+			Message: fmt.Sprintf("%d개 명령어를 [%s] 에 등록할까요?", len(result.Commands), projName),
+			Default: true,
+		}, &ok); err != nil || !ok {
+			fmt.Println()
+			fmt.Println(ui.Dim("  취소됨"))
+			return
+		}
+	}
+
+	cfg := custom.Load()
+	for _, c := range result.Commands {
+		cfg.AddCommand(projName, c)
+	}
+	if err := custom.Save(cfg); err != nil {
+		ui.Fail("저장 실패: " + err.Error())
+		return
+	}
+
+	fmt.Println()
+	ui.Success(fmt.Sprintf("%d개 명령어 등록 완료! [%s]", len(result.Commands), projName))
+	fmt.Printf("  %s  %s\n\n", ui.Dim("TUI 확인:"), ui.Cyan("gez ui  →  [3] Commands 탭"))
 }
 
 // ── Interactive menu ──────────────────────────────────────────────────────────

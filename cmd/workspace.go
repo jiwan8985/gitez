@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"gez/internal/custom"
 	"gez/internal/git"
 	"gez/internal/ui"
 	"gez/internal/workspace"
@@ -66,6 +67,9 @@ var wsAddCmd = &cobra.Command{
 		ui.Success(fmt.Sprintf("'%s' 등록 완료  (%s)", proj.Name, workspace.HomePath(proj.Path)))
 		fmt.Printf("  %s  %s\n", ui.Dim("이제 이렇게 사용하세요:"), ui.Cyan(fmt.Sprintf("gez -p %s <명령어>", proj.Name)))
 		fmt.Println()
+
+		// ── 커스텀 명령어 자동 감지 ──────────────────────────────────────────
+		autoDetectAndRegister(proj.Name, proj.Path, true)
 	},
 }
 
@@ -491,6 +495,48 @@ func runWsForeach(command string) {
 		ui.Warn(fmt.Sprintf("완료 %d개, 실패 %d개", ok, fail))
 	}
 	fmt.Println()
+}
+
+// ── autoDetectAndRegister ─────────────────────────────────────────────────────
+
+// autoDetectAndRegister scans dir for build scripts and saves detected commands.
+// If announce is true it prints a summary line.
+func autoDetectAndRegister(projName, dir string, announce bool) {
+	result := custom.DetectCommands(dir)
+	if len(result.Commands) == 0 {
+		if announce {
+			fmt.Printf("  %s  감지된 명령어 없음 (나중에 gez custom add 로 추가)\n\n", ui.Dim("자동 감지:"))
+		}
+		return
+	}
+
+	cfg := custom.Load()
+	added := 0
+	for _, c := range result.Commands {
+		before := len(cfg.ForProject(projName).Commands)
+		cfg.AddCommand(projName, c)
+		after := len(cfg.ForProject(projName).Commands)
+		if after > before {
+			added++
+		}
+	}
+	if err := custom.Save(cfg); err != nil {
+		if announce {
+			ui.Warn("커스텀 명령어 저장 실패: " + err.Error())
+		}
+		return
+	}
+
+	if announce {
+		fmt.Printf("  %s  %s개 명령어 자동 등록  (%s)\n",
+			ui.Dim("자동 감지:"),
+			ui.BoldCyan(fmt.Sprintf("%d", len(result.Commands))),
+			ui.Dim(strings.Join(result.Sources, ", ")))
+		fmt.Printf("  %s  %s\n\n",
+			ui.Dim("TUI 확인:"),
+			ui.Cyan("gez ui  →  [3] Commands 탭"))
+	}
+	_ = added
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────
