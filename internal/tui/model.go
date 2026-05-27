@@ -67,6 +67,22 @@ type flashMsg string
 type projLoadedMsg []projEntry
 type fullLogLoadedMsg string
 
+// ── Click zone ────────────────────────────────────────────────────────────────
+
+// btnZone tracks one clickable button in the button bar.
+type btnZone struct {
+	x1, x2 int    // column range [x1, x2)
+	key    string // key to fire
+}
+
+// tabBtnDef defines one button for a tab's button bar.
+type tabBtnDef struct {
+	label string
+	key   string
+	style lipgloss.Style
+	sep   bool // if true, renders "│" separator, key is ignored
+}
+
 // ── Model ─────────────────────────────────────────────────────────────────────
 
 type Model struct {
@@ -106,6 +122,11 @@ type Model struct {
 	paletteItems  []paletteItem
 	paletteCursor int
 
+	// Mouse click support
+	btnZones      []btnZone // button bar zones (rebuilt on tab switch / resize)
+	lastClickY    int       // for double-click detection
+	lastClickItem int       // item index of last click
+
 	exe string
 }
 
@@ -122,6 +143,8 @@ func New() Model {
 		activeTab: startTab,
 		customCfg: custom.Load(),
 		exe:       exe,
+		lastClickY:    -1,
+		lastClickItem: -1,
 	}
 	m.paletteItems = allGezCommands
 	return m
@@ -146,7 +169,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.resizePanels()
+		m.rebuildBtnZones()
 		return m, nil
+
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+			return m.handleClick(msg.X, msg.Y)
+		}
+		// Scroll wheel in content area
+		if msg.Button == tea.MouseButtonWheelUp {
+			return m.handleMouseScroll(-3)
+		}
+		if msg.Button == tea.MouseButtonWheelDown {
+			return m.handleMouseScroll(3)
+		}
 
 	case refreshMsg:
 		m.loadGitState()
@@ -253,6 +289,8 @@ func (m Model) switchTab(t tab) (Model, tea.Cmd) {
 	m.activeTab = t
 	m.flash = ""
 	_ = prev
+
+	m.rebuildBtnZones()
 
 	switch t {
 	case tabProjects:
@@ -499,7 +537,6 @@ func (m Model) handleGitKey(key string) (Model, tea.Cmd) {
 func (m Model) handleCommandsKey(key string) (Model, tea.Cmd) {
 	switch key {
 	case "tab":
-		// Commands tab: tab → next main tab
 		return m.switchTab(tabLog)
 
 	case "up", "k":
@@ -516,6 +553,15 @@ func (m Model) handleCommandsKey(key string) (Model, tea.Cmd) {
 			}
 			return m, m.execShell(cmdStr)
 		}
+
+	case "A": // add custom command
+		return m, m.execGez("custom", "add")
+
+	case "D": // detect custom commands for this project
+		return m, m.execGez("custom", "detect")
+
+	case "X": // remove a custom command
+		return m, m.execGez("custom", "remove")
 
 	case "pgup", "ctrl+u":
 		m.moveCmdCursor(-5)
@@ -757,7 +803,8 @@ func (m *Model) resizePanels() {
 }
 
 func (m Model) contentHeight() int {
-	h := m.height - 4
+	// status(1) + tabbar(1) + content(h) + buttonbar(1) + helpbar(1) = height
+	h := m.height - 5
 	if h < 5 {
 		h = 5
 	}
@@ -813,8 +860,9 @@ func (m Model) View() string {
 		content = m.renderLogTab()
 	}
 
+	buttonBar := m.renderButtonBar()
 	helpBar := m.renderHelpBar()
-	base := lipgloss.JoinVertical(lipgloss.Left, statusBar, tabBar, content, helpBar)
+	base := lipgloss.JoinVertical(lipgloss.Left, statusBar, tabBar, content, buttonBar, helpBar)
 
 	if m.paletteOpen {
 		return m.renderPaletteOverlay(base)
@@ -883,20 +931,351 @@ func (m Model) renderTabBar() string {
 	return bar
 }
 
-// ── Help bar ──────────────────────────────────────────────────────────────────
+// ── Mouse click system ────────────────────────────────────────────────────────
 
-func (m Model) renderHelpBar() string {
+// handleClick routes a left-click to the correct handler.
+func (m Model) handleClick(x, y int) (Model, tea.Cmd) {
+	// Palette is open — route to palette
+	if m.paletteOpen {
+		return m, nil
+	}
+
+	switch {
+	case y == 1: // tab bar (row 1)
+		return m.clickTabBar(x)
+	case y == m.height-1: // button bar (last row)
+		return m.clickBtnBar(x)
+	case y >= 2 && y < m.height-1: // content area
+		return m.clickContent(x, y)
+	}
+	return m, nil
+}
+
+// handleMouseScroll handles scroll wheel events.
+func (m Model) handleMouseScroll(delta int) (Model, tea.Cmd) {
+	switch {
+	case m.activeTab == tabGit && m.gitPanel == panelDiff:
+		if delta < 0 {
+			m.diffVP.LineUp(-delta)
+		} else {
+			m.diffVP.LineDown(delta)
+		}
+	case m.activeTab == tabGit && m.gitPanel == panelFiles:
+		if delta < 0 {
+			return m.handleGitKey("up")
+		}
+		return m.handleGitKey("down")
+	case m.activeTab == tabLog:
+		if delta < 0 {
+			m.fullLogVP.LineUp(-delta)
+		} else {
+			m.fullLogVP.LineDown(delta)
+		}
+	case m.activeTab == tabProjects:
+		if delta < 0 {
+			return m.handleProjectsKey("up")
+		}
+		return m.handleProjectsKey("down")
+	case m.activeTab == tabCommands:
+		if delta < 0 {
+			m.moveCmdCursor(-1)
+		} else {
+			m.moveCmdCursor(1)
+		}
+	}
+	return m, nil
+}
+
+// clickTabBar handles a click on the tab bar (y==1).
+func (m Model) clickTabBar(x int) (Model, tea.Cmd) {
+	type tabInfo struct {
+		label string
+		t     tab
+	}
+	tabs := []tabInfo{
+		{"[1] Projects", tabProjects},
+		{"[2] Git", tabGit},
+		{"[3] Commands", tabCommands},
+		{"[4] Log", tabLog},
+	}
+	px := 1 // skip leading space
+	for _, t := range tabs {
+		w := len(t.label) + 2 // Padding(0,1) adds 2 cols
+		if x >= px && x < px+w {
+			return m.switchTab(t.t)
+		}
+		px += w + 1 // +1 space between tabs
+	}
+	return m, nil
+}
+
+// clickBtnBar handles a click on the button bar (last row).
+func (m Model) clickBtnBar(x int) (Model, tea.Cmd) {
+	for _, z := range m.btnZones {
+		if x >= z.x1 && x < z.x2 {
+			return m.fireKey(z.key)
+		}
+	}
+	return m, nil
+}
+
+// fireKey simulates pressing a key — dispatches through the normal key handlers.
+func (m Model) fireKey(key string) (Model, tea.Cmd) {
+	// global keys
+	switch key {
+	case "q", "ctrl+c":
+		return m, tea.Quit
+	case "r":
+		m.flash = "새로고침 중…"
+		return m, tea.Batch(refresh(), loadProjects())
+	case ":":
+		m.paletteOpen = true
+		m.paletteInput = ""
+		m.paletteItems = allGezCommands
+		m.paletteCursor = 0
+		return m, nil
+	case "1":
+		return m.switchTab(tabProjects)
+	case "2":
+		return m.switchTab(tabGit)
+	case "3":
+		return m.switchTab(tabCommands)
+	case "4":
+		return m.switchTab(tabLog)
+	}
+	// tab-specific
 	switch m.activeTab {
 	case tabProjects:
-		return styleDim.Render("  ↑↓:이동  enter:프로젝트 전환  g:→Git  c:→Commands  d:명령어자동감지  tab:→Git탭  r:새로고침  q:종료")
+		return m.handleProjectsKey(key)
 	case tabGit:
-		return styleDim.Render("  space:stage  a:all  u:unstage  h:hunk  d:diff  c:커밋  p:push  P:pull  f:fetch  S:sync  b:브랜치  B:브랜치메뉴  s:stash  m:머지  R:리베이스  l:로그  L:→Log탭  tab:패널전환  r:새로고침  q:종료")
+		return m.handleGitKey(key)
 	case tabCommands:
-		return styleDim.Render("  ↑↓:이동  enter:실행  tab:→Log탭  r:새로고침  q:종료")
+		return m.handleCommandsKey(key)
 	case tabLog:
-		return styleDim.Render("  ↑↓/PgUp/PgDn:스크롤  enter:대화형 로그  tab:→Projects탭  r:새로고침  q:종료")
+		return m.handleLogKey(key)
 	}
-	return ""
+	return m, nil
+}
+
+// clickContent handles a click inside the content area (y>=2, y<height-1).
+func (m Model) clickContent(x, y int) (Model, tea.Cmd) {
+	switch m.activeTab {
+	case tabProjects:
+		return m.clickProjectsList(y)
+	case tabGit:
+		return m.clickGitContent(x, y)
+	case tabCommands:
+		return m.clickCommandsList(y)
+	}
+	return m, nil
+}
+
+// clickProjectsList selects a project on click, switches on second click.
+func (m Model) clickProjectsList(y int) (Model, tea.Cmd) {
+	// Panel starts at y=2 (content top), inside border y=3
+	// Title "워크스페이스 프로젝트" at offset 0, blank at offset 1
+	// Projects start at offset 2 → absolute y = 2+1+2 = 5
+	const itemsStartY = 5
+	idx := y - itemsStartY
+	if idx < 0 || idx >= len(m.projEntries) {
+		return m, nil
+	}
+	if m.lastClickY == y && m.lastClickItem == idx {
+		// Double-click → activate
+		m.lastClickY = -1
+		m.lastClickItem = -1
+		return m.handleProjectsKey("enter")
+	}
+	m.projCursor = idx
+	m.lastClickY = y
+	m.lastClickItem = idx
+	return m, nil
+}
+
+// clickGitContent handles clicks in the git tab.
+func (m Model) clickGitContent(x, y int) (Model, tea.Cmd) {
+	lw := m.width*30/100 + 3 // panel width + border
+	logH := 7
+	mainH := m.contentHeight() - logH
+	// File list panel: x in [0, lw), y in [2, 2+mainH)
+	// Items start at y = 2+1 (top border) + 1 (title) + 1 (blank) = 5
+	const itemsStartY = 5
+	if x < lw && y >= itemsStartY && y < 2+mainH {
+		idx := y - itemsStartY
+		if idx < 0 || idx >= len(m.files) {
+			return m, nil
+		}
+		m.gitPanel = panelFiles
+		if m.lastClickY == y && m.lastClickItem == idx {
+			// Double-click → stage/unstage
+			m.lastClickY = -1
+			m.lastClickItem = -1
+			return m.handleGitKey(" ")
+		}
+		m.fileCursor = idx
+		m.lastClickY = y
+		m.lastClickItem = idx
+		return m, m.loadDiffCmd()
+	}
+	return m, nil
+}
+
+// clickCommandsList selects a command on click, runs on second click.
+func (m Model) clickCommandsList(y int) (Model, tea.Cmd) {
+	// Panel at y=2+1 (border), title at 0, projName at 1, blank at 2
+	// Items start at offset 3 → absolute y = 2+1+3 = 6
+	const itemsStartY = 6
+	idx := y - itemsStartY
+	if idx < 0 || idx >= len(m.cmdItems) {
+		return m, nil
+	}
+	if m.cmdItems[idx].IsHeader {
+		return m, nil // can't click headers
+	}
+	if m.lastClickY == y && m.lastClickItem == idx {
+		m.lastClickY = -1
+		m.lastClickItem = -1
+		m.cmdCursor = idx
+		return m.handleCommandsKey("enter")
+	}
+	m.cmdCursor = idx
+	m.lastClickY = y
+	m.lastClickItem = idx
+	return m, nil
+}
+
+// ── Button bar rendering & zone building ──────────────────────────────────────
+
+var (
+	styleBtnNormal  = lipgloss.NewStyle().Background(lipgloss.Color("237")).Foreground(lipgloss.Color("252")).Padding(0, 1)
+	styleBtnBlue    = lipgloss.NewStyle().Background(lipgloss.Color("25")).Foreground(lipgloss.Color("255")).Bold(true).Padding(0, 1)
+	styleBtnGreen   = lipgloss.NewStyle().Background(lipgloss.Color("28")).Foreground(lipgloss.Color("255")).Padding(0, 1)
+	styleBtnOrange  = lipgloss.NewStyle().Background(lipgloss.Color("130")).Foreground(lipgloss.Color("255")).Padding(0, 1)
+	styleBtnSep     = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+)
+
+func (m *Model) rebuildBtnZones() {
+	defs := m.currentTabBtns()
+	var zones []btnZone
+	x := 1
+	for _, d := range defs {
+		if d.sep {
+			x += 3 // " │ "
+			continue
+		}
+		w := len(d.label) + 2 // Padding(0,1)
+		if x+w > m.width-2 {
+			break
+		}
+		zones = append(zones, btnZone{x1: x, x2: x + w, key: d.key})
+		x += w + 1
+	}
+	m.btnZones = zones
+}
+
+func (m Model) currentTabBtns() []tabBtnDef {
+	sep := tabBtnDef{sep: true}
+	n := styleBtnNormal
+	b := styleBtnBlue
+	g := styleBtnGreen
+	o := styleBtnOrange
+
+	switch m.activeTab {
+	case tabGit:
+		return []tabBtnDef{
+			{label: "↕ stage", key: " ", style: n},
+			{label: "⊕ all", key: "a", style: n},
+			{label: "⊖ unstage", key: "u", style: n},
+			sep,
+			{label: "✦ commit", key: "c", style: b},
+			{label: "↑ push", key: "p", style: b},
+			{label: "↓ pull", key: "P", style: b},
+			{label: "⟳ fetch", key: "f", style: n},
+			{label: "⇅ sync", key: "S", style: n},
+			sep,
+			{label: "⎇ branch", key: "b", style: n},
+			{label: "≡ stash", key: "s", style: o},
+			{label: "⋈ merge", key: "m", style: n},
+			{label: "⧸ rebase", key: "R", style: n},
+			sep,
+			{label: "⟳ refresh", key: "r", style: n},
+			{label: "✕ quit", key: "q", style: n},
+		}
+	case tabProjects:
+		return []tabBtnDef{
+			{label: "⏎ switch", key: "enter", style: b},
+			{label: "→ git", key: "g", style: n},
+			{label: "→ cmds", key: "c", style: n},
+			{label: "⚙ detect", key: "d", style: g},
+			sep,
+			{label: "⟳ refresh", key: "r", style: n},
+			{label: "✕ quit", key: "q", style: n},
+		}
+	case tabCommands:
+		return []tabBtnDef{
+			{label: "▶ run", key: "enter", style: g},
+			sep,
+			{label: "＋ add", key: "A", style: b},
+			{label: "🔍 detect", key: "D", style: b},
+			{label: "✕ remove", key: "X", style: o},
+			sep,
+			{label: "⟳ refresh", key: "r", style: n},
+			{label: "✕ quit", key: "q", style: n},
+		}
+	case tabLog:
+		return []tabBtnDef{
+			{label: "⏎ interactive", key: "enter", style: b},
+			sep,
+			{label: "⟳ refresh", key: "r", style: n},
+			{label: "✕ quit", key: "q", style: n},
+		}
+	}
+	return nil
+}
+
+// renderButtonBar renders the clickable button bar (bottom row).
+func (m Model) renderButtonBar() string {
+	defs := m.currentTabBtns()
+	var parts []string
+	x := 1
+	for _, d := range defs {
+		if d.sep {
+			parts = append(parts, styleBtnSep.Render(" │"))
+			x += 3
+			continue
+		}
+		w := len(d.label) + 2
+		if x+w > m.width-2 {
+			break
+		}
+		rendered := d.style.Render(d.label)
+		parts = append(parts, rendered)
+		x += w + 1
+	}
+	bar := " " + strings.Join(parts, " ")
+	// pad to full width
+	pad := m.width - lipgloss.Width(bar)
+	if pad > 0 {
+		bar += styleDim.Render(strings.Repeat(" ", pad))
+	}
+	return bar
+}
+
+// ── Help bar (keyboard shortcut reminder, below button bar) ───────────────────
+
+func (m Model) renderHelpBar() string {
+	hint := ""
+	switch m.activeTab {
+	case tabProjects:
+		hint = "↑↓/j/k:이동  enter:전환  g:Git  c:Cmds  d:감지  tab:탭전환  r:새로고침  q:종료"
+	case tabGit:
+		hint = "space:stage  a:all  h:hunk  c:commit  p:push  P:pull  b:branch  s:stash  R:rebase  l:로그  tab:패널전환"
+	case tabCommands:
+		hint = "↑↓:이동  enter:실행  A:추가  D:감지  X:삭제  tab:탭전환  r:새로고침  q:종료"
+	case tabLog:
+		hint = "↑↓/PgUp/PgDn:스크롤  enter:대화형  tab:탭전환  r:새로고침  q:종료"
+	}
+	return styleDim.Render("  " + hint)
 }
 
 // ── Tab 1: Projects ───────────────────────────────────────────────────────────
