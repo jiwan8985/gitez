@@ -53,12 +53,9 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 
+	// 기본 실행: TUI 런치
 	Run: func(cmd *cobra.Command, args []string) {
-		if !git.IsRepo() {
-			showWorkspaceOverview()
-			return
-		}
-		showDashboard()
+		RunTUI()
 	},
 }
 
@@ -80,6 +77,18 @@ func init() {
 		&projectFlag, "project", "p", "",
 		"워크스페이스에 등록된 프로젝트 이름으로 해당 프로젝트에서 명령 실행",
 	)
+	// dash: 텍스트 대시보드 (TUI를 쓸 수 없는 환경용)
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "dash",
+		Short: "텍스트 대시보드 (TUI 불가 환경용, 기본값은 gez ui)",
+		Run: func(cmd *cobra.Command, args []string) {
+			if !git.IsRepo() {
+				showWorkspaceOverview()
+				return
+			}
+			showDashboard()
+		},
+	})
 }
 
 // ── Dashboard (current repo) ──────────────────────────────────────────────────

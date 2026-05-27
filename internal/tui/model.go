@@ -107,16 +107,23 @@ type Model struct {
 }
 
 // New creates an initialised Model.
+// Starts on the Git tab when inside a git repo, Projects tab otherwise.
 func New() Model {
 	diffVP := viewport.New(0, 0)
 	fullLogVP := viewport.New(0, 0)
 	cmdOutVP := viewport.New(0, 0)
 	exe, _ := os.Executable()
+
+	startTab := tabGit
+	if !git.IsRepo() {
+		startTab = tabProjects
+	}
+
 	return Model{
 		diffVP:    diffVP,
 		fullLogVP: fullLogVP,
 		cmdOutVP:  cmdOutVP,
-		activeTab: tabGit, // start on Git tab (most common use)
+		activeTab: startTab,
 		customCfg: custom.Load(),
 		exe:       exe,
 	}
@@ -125,6 +132,9 @@ func New() Model {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 func (m Model) Init() tea.Cmd {
+	if m.activeTab == tabProjects {
+		return tea.Batch(loadProjects(), m.loadCmdItems())
+	}
 	return tea.Batch(refresh(), m.loadCmdItems())
 }
 

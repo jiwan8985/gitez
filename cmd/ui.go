@@ -13,12 +13,17 @@ var uiCmd = &cobra.Command{
 	Aliases: []string{"tui"},
 	Short:   "전체화면 TUI 모드 (파일 스테이징·diff·로그 한눈에)",
 	Run: func(cmd *cobra.Command, args []string) {
-		m := tui.New()
-		p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
-		if _, err := p.Run(); err != nil {
-			fmt.Printf("TUI 오류: %v\n", err)
-		}
+		RunTUI()
 	},
+}
+
+// RunTUI launches the full-screen TUI. Called from root and ui commands.
+func RunTUI() {
+	m := tui.New()
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("TUI 오류: %v\n", err)
+	}
 }
 
 func init() {
