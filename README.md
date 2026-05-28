@@ -6,14 +6,14 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey?style=flat-square)](#설치)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-`gez`는 git을 더 빠르고 편하게 사용하기 위한 **대화형 CLI + TUI 도구**입니다.  
-복잡한 git 명령어를 외우지 않아도 메뉴로 선택하고, `-p` 플래그 하나로 어느 폴더에서든 다른 프로젝트에 명령을 보낼 수 있습니다.
+`gez`는 git을 더 빠르고 편하게 사용하기 위한 **브라우저 GUI + TUI + CLI 도구**입니다.
+`gez`를 실행하면 브라우저에 Git GUI가 자동으로 열립니다. GitKraken/SourceTree처럼 클릭으로 git 작업을 처리하고, 여러 프로젝트를 탭 없이 폴더 피커로 전환할 수 있습니다.
 
 ```
-gez                    # 현재 저장소 대시보드
+gez                    # 브라우저 Git GUI 자동 실행 (기본)
+gez tui                # 전체화면 TUI 모드
 gez -p backend commit  # backend 프로젝트에서 커밋 (폴더 이동 불필요)
 gez ws                 # 등록된 모든 프로젝트 상태 한눈에
-gez ui                 # 전체화면 TUI 모드
 ```
 
 ---
@@ -23,7 +23,10 @@ gez ui                 # 전체화면 TUI 모드
 - [특징](#특징)
 - [설치](#설치)
 - [빠른 시작](#빠른-시작)
+- [Web GUI](#web-gui)
 - [명령어 전체 목록](#명령어-전체-목록)
+- [커스텀 명령어](#커스텀-명령어--프로젝트별-빌드스크립트)
+- [VSCode 연동](#vscode-연동)
 - [워크스페이스](#워크스페이스--다중-프로젝트)
 - [TUI 모드](#tui-모드)
 - [Git Flow 전략](#git-flow-전략)
@@ -37,9 +40,13 @@ gez ui                 # 전체화면 TUI 모드
 
 | | |
 |---|---|
-| 🎯 **대화형 메뉴** | 모든 명령이 프롬프트로 안내 — git 옵션을 외울 필요 없음 |
+| 🌐 **브라우저 Git GUI** | `gez` 한 번으로 브라우저에 GitKraken급 GUI 자동 실행 |
+| 🗂️ **폴더 피커** | 서버 재시작 없이 클릭으로 다른 저장소 전환 |
+| 🖥️ **전체화면 TUI** | `gez tui` — stage·diff·log를 한 화면에서 키보드로 |
+| 🎯 **대화형 메뉴** | 모든 CLI 명령이 프롬프트로 안내 — git 옵션을 외울 필요 없음 |
 | 📁 **다중 프로젝트** | `gez ws add`로 등록 후 `-p <이름>`으로 어디서든 실행 |
-| 🖥️ **전체화면 TUI** | `gez ui` — stage·diff·log를 한 화면에서 키보드로 |
+| 🔧 **커스텀 명령어** | Makefile·ps1·package.json 자동 감지 → GUI/TUI에서 바로 실행 |
+| 🧩 **VSCode 연동** | `gez vscode` → `.vscode/tasks.json` 자동 생성 |
 | 🌿 **브랜치 전략** | Git Flow / GitHub Flow / Trunk 대화형 가이드 |
 | 📝 **Conventional Commits** | 커밋 타입 선택 → 메시지 자동 포맷 |
 | 🔍 **5가지 검색** | 메시지·pickaxe·regex·grep·파일명 |
@@ -96,7 +103,7 @@ make release
 ## 빠른 시작
 
 ```bash
-# 1. 현재 저장소 대시보드
+# 1. 브라우저 Git GUI 실행 (기본)
 gez
 
 # 2. 커밋 마법사 (스테이징 → Conventional Commits → push 여부)
@@ -109,7 +116,7 @@ gez b
 gez d
 
 # 5. 전체화면 TUI
-gez ui
+gez tui
 ```
 
 ### 프로젝트 등록 후 어디서든 사용
@@ -127,13 +134,62 @@ gez ws           # 전체 상태
 
 ---
 
+## Web GUI
+
+```bash
+gez               # 기본 실행 — 브라우저 자동 오픈
+gez --port 8080   # 포트 지정
+gez --no-browser  # 브라우저 없이 서버만 실행
+gez gui           # 명시적 GUI 실행 (gez web 과 동일)
+```
+
+### 화면 구성
+
+```
+┌─ Header ────────────────────────────────────────────────────┐
+│  ⎔ gez   ⎇ main ↑1   [gitez ▾]   🔄  [Undo]  [Auto: ON]   │
+├───────┬──────────────────────────────────────────────────────┤
+│ Tabs  │  Changes │ History │ Branches │ Tags │ Stash │ ...  │
+├───────┴──────────────────────────────────────────────────────┤
+│                      메인 콘텐츠                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 주요 기능
+
+| 탭 | 기능 |
+|----|------|
+| **Changes** | 파일 스테이징·언스테이징·diff·커밋 (hunk 단위 스테이징 포함) |
+| **History** | 커밋 로그·diff·Cherry-pick·Reset·Revert·Branch 생성 |
+| **Branches** | 브랜치 전환·생성·삭제·머지·리베이스·이름 변경 |
+| **Tags** | 태그 생성·삭제·원격 push |
+| **Stash** | stash push·pop·apply·drop (diff 미리보기) |
+| **Commands** | 커스텀 명령어 + gez 내장 명령어 실행 (SSE 스트리밍 출력) |
+| **Workspace** | 등록된 모든 프로젝트 상태 한눈에 |
+
+### 폴더 피커 — 저장소 전환
+
+헤더의 **저장소 이름 ▾** 를 클릭하면 폴더 브라우저가 열립니다.
+디렉토리를 클릭해 탐색하고, `⎔` 표시된 git 저장소를 선택하면 서버 재시작 없이 전환됩니다.
+
+### 우클릭 컨텍스트 메뉴
+
+- **파일 우클릭** → Stage / Unstage / Discard / Blame / File History
+- **커밋 우클릭** → Cherry-pick / Revert / Branch here / Reset / Tag / Copy hash
+- **브랜치 우클릭** → Switch / Merge / Rebase / Delete / Rename / Push tracking
+
+자세한 내용 → [docs/webui.md](docs/webui.md)
+
+---
+
 ## 명령어 전체 목록
 
 ### 기본 워크플로우
 
 | 명령어 | 단축 | 설명 |
 |--------|------|------|
-| `gez` | | 대시보드 — 브랜치·변경사항·명령어 목록 |
+| `gez` | | 브라우저 Git GUI 실행 (기본) |
+| `gez dash` | | 텍스트 대시보드 (TUI 불가 환경용) |
 | `gez status` | `gez s` | 현재 상태 상세 표시 |
 | `gez commit` | `gez c` | 커밋 마법사 (스테이징→Conventional Commits→push) |
 | `gez push` | `gez p` | 원격 푸시 (upstream 자동 설정) |
@@ -212,16 +268,28 @@ gez ws           # 전체 상태
 | `gez doctor` | Git 환경 진단 |
 | `gez completion-install` | 쉘 자동완성 설치 (bash·zsh·fish·PowerShell) |
 
-### TUI & 워크스페이스
+### GUI & TUI & 워크스페이스
 
 | 명령어 | 설명 |
 |--------|------|
-| `gez ui` / `gez tui` | 전체화면 TUI |
+| `gez` / `gez gui` / `gez web` | 브라우저 Git GUI (기본 포트: 7777) |
+| `gez tui` / `gez ui` | 전체화면 TUI |
+| `gez dash` | 텍스트 대시보드 (TUI 불가 환경용) |
 | `gez ws` | 전체 프로젝트 상태 |
 | `gez ws add [경로]` | 프로젝트 등록 |
 | `gez ws pull/sync` | 전체 프로젝트 pull/sync |
 | `gez ws foreach <cmd>` | 모든 프로젝트에서 git 명령 실행 |
 | `gez -p <이름> <cmd>` | 특정 프로젝트에서 명령 실행 |
+
+### 커스텀 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `gez custom detect` | 프로젝트 파일 분석 후 명령어 자동 감지·등록 |
+| `gez custom list` | 등록된 커스텀 명령어 목록 |
+| `gez custom add` | 커스텀 명령어 수동 추가 |
+| `gez custom run <이름>` | 커스텀 명령어 실행 |
+| `gez vscode` | `.vscode/tasks.json` 생성 (VSCode 태스크 연동) |
 
 ### Git Flow 전략
 
@@ -235,6 +303,61 @@ gez ws           # 전체 상태
 | `gez flow release finish` | release 완료 → main+develop+태그 |
 | `gez flow hotfix start <이름>` | hotfix 시작 |
 | `gez flow hotfix finish` | hotfix 완료 → main+develop+태그 |
+
+---
+
+## 커스텀 명령어 — 프로젝트별 빌드·스크립트
+
+Makefile, make.ps1, run.ps1, package.json, Taskfile.yml 등 빌드 스크립트를 `gez`로 통합 관리합니다.
+등록된 명령어는 **Web GUI Commands 탭**과 **TUI [3] Commands 탭**에서 바로 실행됩니다.
+
+```bash
+# 1. 현재 프로젝트 파일 자동 감지 후 등록
+gez custom detect
+
+# 2. 등록된 명령어 확인
+gez custom list
+
+# 3. 실행 (CLI)
+gez custom run build
+
+# 4. 또는 GUI/TUI Commands 탭에서 클릭/키로 실행
+gez
+```
+
+### 지원 파일
+
+| 파일 | 감지 항목 |
+|------|-----------|
+| `Makefile` | `make` 타겟 전체 (`##` 주석으로 설명 자동 추출) |
+| `make.ps1` / `run.ps1` | PowerShell 파라미터 (`Param` 블록) |
+| `package.json` | `scripts` 항목 전체 |
+| `Taskfile.yml` | `tasks` 항목 전체 |
+| `docker-compose.yml` | `services` 기반 up/down/logs 명령 |
+| `Cargo.toml` | build·test·run·clippy·fmt |
+| `go.mod` | build·test·vet·run |
+
+---
+
+## VSCode 연동
+
+`gez vscode` 명령어로 현재 프로젝트의 커스텀 명령어를 VSCode 태스크로 내보냅니다.
+
+```bash
+# 1. 커스텀 명령어 감지 (아직 안 했다면)
+gez custom detect
+
+# 2. .vscode/tasks.json 생성
+gez vscode
+# → .vscode/tasks.json 생성됨
+# → build 관련 태스크는 Ctrl+Shift+B 기본 빌드 태스크로 등록
+
+# 3. VSCode에서 사용
+#    Ctrl+Shift+P → "Tasks: Run Task" → 목록에서 선택
+#    Ctrl+Shift+B → 기본 빌드 태스크 바로 실행
+```
+
+생성되는 tasks.json에는 프로젝트 커스텀 명령어 외에 `gez: Open Web GUI`, `gez: custom detect` 유틸리티 태스크가 자동으로 포함됩니다.
 
 ---
 
@@ -277,7 +400,7 @@ gez ws go                      # 대화형 프로젝트 선택 → cd
 ## TUI 모드
 
 ```bash
-gez ui    # 또는 gez tui
+gez tui    # 또는 gez ui
 ```
 
 ```
@@ -309,6 +432,7 @@ gez ui    # 또는 gez tui
 | `b` | 브랜치 전환 |
 | `s` | 스태시 메뉴 |
 | `l` | 대화형 로그 |
+| `:` | 명령어 팔레트 (gez 전체 명령 검색·실행) |
 | `tab` | 패널 전환 (Files ↔ Diff ↔ Log) |
 | `r` | 새로고침 |
 | `q` | 종료 |
@@ -390,6 +514,7 @@ Breaking change는 `!` 접미사로 표시: `feat!: drop Node 14 support`
 
 | 문서 | 내용 |
 |------|------|
+| [docs/webui.md](docs/webui.md) | Web GUI 가이드 (탭·폴더 피커·API·단축키) |
 | [docs/install.md](docs/install.md) | 상세 설치 가이드 (플랫폼별) |
 | [docs/commands.md](docs/commands.md) | 전체 명령어 레퍼런스 |
 | [docs/workspace.md](docs/workspace.md) | 워크스페이스 상세 가이드 |
@@ -420,19 +545,27 @@ go test ./...
 ```
 gez/
 ├── main.go              # 진입점
-├── cmd/                 # 모든 cobra 커맨드 (51개)
-│   ├── root.go          # 루트 커맨드 + 대시보드
+├── cmd/                 # cobra 명령어 (55개)
+│   ├── root.go          # 루트 커맨드 — 기본 실행: Web GUI
+│   ├── gui.go           # Web GUI 서버 실행 (gez gui / gez web)
+│   ├── ui.go            # TUI 진입점 (gez tui / gez ui)
 │   ├── commit.go        # Conventional Commits 마법사
 │   ├── branch.go        # 브랜치 관리
 │   ├── flow.go          # Git Flow 전략
 │   ├── workspace.go     # 다중 프로젝트 관리
-│   ├── ui.go            # TUI 진입점
-│   └── ...              # 나머지 48개
+│   ├── custom.go        # 커스텀 명령어 관리 + detect
+│   ├── vscode.go        # VSCode tasks.json 생성
+│   └── ...              # 나머지 46개
 ├── internal/
 │   ├── git/
 │   │   └── runner.go    # git 명령 래퍼
 │   ├── tui/
 │   │   └── model.go     # Bubbletea TUI 모델
+│   ├── webui/
+│   │   ├── server.go    # HTTP REST API 서버
+│   │   ├── html.go      # go:embed — index.html 임베드
+│   │   └── index.html   # 브라우저 Git GUI (단일 파일)
+│   ├── custom/          # 커스텀 명령어 설정·감지
 │   ├── ui/              # 컬러·포맷 유틸리티
 │   └── workspace/       # 워크스페이스 설정 (~/.config/gez/)
 ├── Makefile             # macOS/Linux 빌드
@@ -449,6 +582,8 @@ gez/
 | [bubbletea](https://github.com/charmbracelet/bubbletea) v1.3 | TUI 프레임워크 |
 | [lipgloss](https://github.com/charmbracelet/lipgloss) v1.1 | TUI 스타일링 |
 | [bubbles](https://github.com/charmbracelet/bubbles) v1.0 | TUI 컴포넌트 |
+| Go `net/http` | Web GUI HTTP 서버 |
+| Go `embed` | index.html 바이너리 임베드 |
 
 ---
 
