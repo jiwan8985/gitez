@@ -53,9 +53,12 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 
-	// 기본 실행: TUI 런치
+	// 기본 실행: Web GUI 런치
 	Run: func(cmd *cobra.Command, args []string) {
-		RunTUI()
+		port, _ := cmd.Flags().GetInt("port")
+		noBrowser, _ := cmd.Flags().GetBool("no-browser")
+		dir, _ := os.Getwd()
+		runGUIFull(dir, port, !noBrowser)
 	},
 }
 
@@ -77,6 +80,8 @@ func init() {
 		&projectFlag, "project", "p", "",
 		"워크스페이스에 등록된 프로젝트 이름으로 해당 프로젝트에서 명령 실행",
 	)
+	rootCmd.Flags().IntP("port", "P", 7777, "HTTP 포트")
+	rootCmd.Flags().Bool("no-browser", false, "브라우저를 자동으로 열지 않음")
 	// dash: 텍스트 대시보드 (TUI를 쓸 수 없는 환경용)
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "dash",

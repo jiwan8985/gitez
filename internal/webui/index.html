@@ -1,0 +1,2770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>gez — Git GUI</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--sf:#161b22;--sf2:#21262d;--sf3:#2d333b;--sf4:#373e47;
+  --bd:#30363d;--bd2:#21262d;--tx:#e6edf3;--tx2:#c9d1d9;--mt:#8b949e;
+  --ac:#58a6ff;--ac2:#1f6feb;--ac3:#388bfd;
+  --gn:#3fb950;--gn2:#238636;--rd:#f85149;--rd2:#da3633;
+  --yw:#d29922;--or:#db6d28;--pu:#bc8cff;--pi:#ff7b72;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono:'JetBrains Mono','Fira Code','Cascadia Code','SF Mono',Consolas,monospace;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size:13px;
+  display:flex;flex-direction:column}
+
+/* ═══ SCROLLBAR ═══ */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--sf3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--mt)}
+
+/* ═══ HEADER ═══ */
+header{display:flex;align-items:center;gap:6px;padding:0 14px;height:44px;
+  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
+  box-shadow:0 1px 8px rgba(0,0,0,.3)}
+.repo-name{font-weight:700;font-size:14px;letter-spacing:-.3px}
+.branch-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+  background:var(--sf2);border:1px solid var(--bd);border-radius:20px;
+  cursor:pointer;color:var(--ac);font-size:12px;font-family:var(--mono);
+  transition:.15s;user-select:none}
+.branch-pill:hover{background:var(--sf3);border-color:var(--ac2)}
+.sync-info{display:flex;gap:5px;font-size:12px;font-family:var(--mono)}
+.sync-info .ah{color:var(--gn)}.sync-info .bh{color:var(--rd)}
+.spacer{flex:1}
+.hdr-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;
+  border:1px solid var(--bd);border-radius:6px;background:var(--sf2);
+  color:var(--tx2);font-size:12px;cursor:pointer;transition:.15s;white-space:nowrap;
+  font-family:inherit}
+.hdr-btn:hover:not(:disabled){background:var(--sf3);border-color:var(--mt);color:var(--tx)}
+.hdr-btn.primary{background:var(--ac2);border-color:var(--ac3);color:#fff}
+.hdr-btn.primary:hover:not(:disabled){background:var(--ac3)}
+.hdr-btn:disabled{opacity:.35;cursor:not-allowed}
+.ar-dot{width:7px;height:7px;border-radius:50%;background:var(--mt);cursor:pointer;flex-shrink:0}
+.ar-dot.on{background:var(--gn);box-shadow:0 0 6px var(--gn);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ═══ TABS ═══ */
+.tabs{display:flex;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;
+  padding:0 8px;gap:1px}
+.tab{padding:9px 14px;cursor:pointer;color:var(--mt);font-size:12px;font-weight:500;
+  border-bottom:2px solid transparent;transition:.15s;user-select:none;white-space:nowrap}
+.tab:hover{color:var(--tx2)}
+.tab.active{color:var(--tx);border-bottom-color:var(--ac)}
+.badge{display:inline-block;background:var(--sf3);color:var(--mt);font-size:10px;
+  padding:1px 6px;border-radius:10px;margin-left:4px;font-weight:600}
+.tab.active .badge{background:var(--ac2);color:#fff}
+
+/* ═══ CONTENT AREA ═══ */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.pane{display:none;flex:1;overflow:hidden}
+.pane.active{display:flex;flex-direction:column}
+
+/* ═══ PANEL LAYOUT ═══ */
+.layout{display:flex;flex:1;overflow:hidden}
+.resize-handle{width:4px;background:transparent;cursor:col-resize;flex-shrink:0;
+  transition:background .15s;position:relative}
+.resize-handle:hover,.resize-handle.active{background:var(--ac2)}
+
+/* ═══ SECTION HEADER ═══ */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:5px 10px;background:var(--sf2);border-bottom:1px solid var(--bd);
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--mt);flex-shrink:0}
+.sec-hdr .acts{display:flex;gap:3px}
+.mini-btn{padding:2px 7px;font-size:11px;border:1px solid var(--bd);border-radius:4px;
+  background:transparent;color:var(--mt);cursor:pointer;font-family:inherit;transition:.1s}
+.mini-btn:hover{background:var(--sf3);color:var(--tx)}
+
+/* ═══ FILTER ═══ */
+.filter-row{padding:5px 8px;border-bottom:1px solid var(--bd);flex-shrink:0;
+  background:var(--bg)}
+.fi{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;
+  color:var(--tx);font-family:var(--mono);font-size:11px;padding:4px 9px;transition:.15s}
+.fi:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+.fi::placeholder{color:var(--mt)}
+
+/* ═══ BUTTONS ═══ */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--bd);
+  border-radius:6px;background:var(--sf2);color:var(--tx);font-size:12px;cursor:pointer;
+  transition:.15s;white-space:nowrap;font-family:inherit}
+.btn:hover:not(:disabled){background:var(--sf3);border-color:var(--mt)}
+.btn.primary{background:var(--ac2);border-color:var(--ac3);color:#fff}
+.btn.primary:hover:not(:disabled){background:var(--ac3)}
+.btn.success{background:#1a4721;border-color:var(--gn2);color:var(--gn)}
+.btn.success:hover:not(:disabled){background:var(--gn2);color:#fff}
+.btn.danger{color:var(--rd);border-color:#6e1e1e}
+.btn.danger:hover:not(:disabled){background:#3c1111;border-color:var(--rd2)}
+.btn.warn{color:var(--yw);border-color:#6e4a00}
+.btn.warn:hover:not(:disabled){background:#3c2900}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+
+.ibt{padding:1px 6px;font-size:10px;border:1px solid var(--bd);border-radius:3px;
+  background:var(--sf);color:var(--mt);cursor:pointer;font-family:inherit;transition:.1s;white-space:nowrap}
+.ibt:hover{background:var(--sf2)}
+.ibt.st{border-color:#2ea043;color:var(--gn)}.ibt.un{border-color:#6e4a00;color:var(--yw)}
+.ibt.ds{border-color:#6e1e1e;color:var(--rd)}.ibt.inf{border-color:var(--ac2);color:var(--ac)}
+.ibt.pu{border-color:#3d2c6e;color:var(--pu)}
+
+/* ═══ CHANGES TAB ═══ */
+.file-col{display:flex;flex-direction:column;width:240px;flex-shrink:0;
+  border-right:1px solid var(--bd);overflow:hidden;background:var(--sf)}
+.file-sec{display:flex;flex-direction:column;min-height:0}
+.file-sec.us{flex:1;border-bottom:1px solid var(--bd)}
+.file-sec.sg{flex:0 0 auto;max-height:35%}
+.flist{overflow-y:auto;flex:1}
+.fi-row{display:flex;align-items:center;gap:6px;padding:4px 10px;cursor:pointer;
+  font-size:12px;font-family:var(--mono);border-left:2px solid transparent}
+.fi-row:hover{background:var(--sf2)}
+.fi-row.sel{background:var(--sf3);border-left-color:var(--ac)}
+.xy{font-size:11px;font-weight:700;width:14px;text-align:center;flex-shrink:0}
+.M{color:var(--yw)}.A{color:var(--gn)}.D{color:var(--rd)}
+.R{color:var(--or)}.U{color:var(--pu)}.q{color:var(--mt)}
+.fn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
+.fbtns{display:none;gap:2px}
+.fi-row:hover .fbtns{display:flex}
+.conflict-badge{background:rgba(248,81,73,.15);color:var(--rd);font-size:10px;
+  padding:0 4px;border-radius:3px;font-weight:700;border:1px solid var(--rd2)}
+
+/* Stash strip */
+.stash-strip{border-top:1px solid var(--bd);flex-shrink:0}
+.stash-row{display:flex;align-items:center;gap:6px;padding:3px 10px;font-size:11px;
+  color:var(--mt);font-family:var(--mono)}
+.stash-row:hover{background:var(--sf2)}
+.sn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ═══ DIFF VIEWER ═══ */
+.diff-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.diff-toolbar{display:flex;align-items:center;gap:6px;padding:5px 10px;
+  background:var(--sf2);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:36px}
+.diff-path{font-family:var(--mono);font-size:12px;color:var(--mt);flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.diff-path strong{color:var(--tx)}
+.diff-body{flex:1;overflow:auto;font-family:var(--mono);font-size:12px;line-height:1.5}
+
+/* Diff lines with line numbers */
+.diff-line{display:flex;align-items:stretch;min-height:20px}
+.diff-line:hover{filter:brightness(1.08)}
+.ln{flex-shrink:0;width:38px;padding:0 6px;text-align:right;font-size:11px;
+  color:var(--mt);background:var(--sf2);border-right:1px solid var(--bd);
+  user-select:none;line-height:20px;min-height:20px}
+.lm{flex-shrink:0;width:18px;text-align:center;font-size:11px;user-select:none;
+  line-height:20px}
+.lc{flex:1;padding:0 10px;white-space:pre;line-height:20px;overflow:visible}
+.diff-line.add{background:#0a2010}
+.diff-line.add .ln{background:#0c2514;color:#3fb950;border-right-color:#1a4721}
+.diff-line.add .lm{color:#3fb950}
+.diff-line.add .lc{color:#56d364}
+.diff-line.del{background:#2a0a0a}
+.diff-line.del .ln{background:#2e0c0c;color:#f85149;border-right-color:#6e1e1e}
+/* Syntax highlighting */
+.hl-kw{color:#ff8585}.hl-str{color:#7dd3fc}.hl-num{color:#fbbf24}
+.hl-cm{color:#6b7280;font-style:italic}.hl-type{color:#fb923c}.hl-bi{color:#86efac}
+.diff-line.add .hl-kw{color:#a7f3d0}.diff-line.add .hl-str{color:#7ee8fa}
+.diff-line.add .hl-num{color:#fde68a}.diff-line.add .hl-cm{color:#6b9a6b}
+.diff-line.del .hl-kw{color:#fca5a5}.diff-line.del .hl-str{color:#93c5fd}
+.diff-line.del .hl-num{color:#fde68a}.diff-line.del .hl-cm{color:#9a6b6b}
+.diff-line.del .lm{color:#f85149}
+.diff-line.del .lc{color:#ffa198}
+.diff-hunk-hdr{display:flex;align-items:center;background:#0a1826;padding:0 10px;
+  min-height:24px;gap:8px;border-top:1px solid #163450;border-bottom:1px solid #163450}
+.diff-hunk-text{font-family:var(--mono);font-size:11px;color:#58a6ff;flex:1;
+  line-height:24px;white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.diff-meta{display:block;padding:1px 10px;font-family:var(--mono);font-size:11px;
+  color:var(--mt);white-space:pre;background:var(--sf);border-bottom:1px solid var(--bd)}
+.diff-meta.file-sep{background:var(--sf2);color:var(--tx2);font-weight:600;
+  padding:5px 10px;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.conf-ours{background:#1a2a0a}.conf-ours .lc{color:#b5ff69}
+.conf-sep{background:#1a1a2a}.conf-sep .lc{color:#9090ff}
+.conf-theirs{background:#2a1a0a}.conf-theirs .lc{color:#ffa040}
+.diff-hunk-hdr .ibt{opacity:0;transition:opacity .1s}
+.diff-hunk-hdr:hover .ibt{opacity:1}
+
+/* Commit box */
+.commit-col{width:230px;flex-shrink:0;border-left:1px solid var(--bd);
+  display:flex;flex-direction:column;background:var(--sf);overflow:hidden}
+.commit-box{flex:1;display:flex;flex-direction:column;padding:10px}
+.commit-box textarea{flex:1;min-height:80px;background:var(--sf2);border:1px solid var(--bd);
+  border-radius:6px;color:var(--tx);font-family:var(--mono);font-size:12px;
+  padding:8px;resize:none;line-height:1.5;transition:.15s}
+.commit-box textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+.commit-box textarea::placeholder{color:var(--mt)}
+.commit-footer{padding:8px 10px;border-top:1px solid var(--bd);display:flex;
+  flex-direction:column;gap:6px;background:var(--sf)}
+.commit-opts{display:flex;align-items:center;gap:8px}
+.commit-opts label{display:flex;align-items:center;gap:5px;font-size:12px;
+  color:var(--mt);cursor:pointer;user-select:none}
+.commit-opts label:hover{color:var(--tx)}
+
+/* ═══ HISTORY TAB ═══ */
+.hist-left{display:flex;flex-direction:column;width:340px;flex-shrink:0;
+  border-right:1px solid var(--bd);overflow:hidden;background:var(--sf)}
+.clist{flex:1;overflow-y:auto}
+
+/* Commit row with graph */
+.citem{display:flex;align-items:center;cursor:pointer;height:40px;
+  border-bottom:1px solid rgba(48,54,61,.5);transition:.1s;padding-right:10px}
+.citem:hover{background:rgba(33,38,45,.8)}
+.citem.sel{background:var(--sf3);border-left:2px solid var(--ac)}
+.citem.sel .citem-inner{padding-left:8px}
+.citem-inner{flex:1;overflow:hidden;min-width:0;padding-left:10px}
+.csub{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;color:var(--tx);line-height:1.3}
+.cmeta{display:flex;gap:6px;font-size:10px;color:var(--mt);font-family:var(--mono);
+  margin-top:2px;align-items:center}
+.chash{color:var(--ac)}
+.crefs{display:flex;gap:3px;flex-wrap:nowrap;margin-bottom:2px;overflow:hidden}
+.ref{padding:1px 5px;border-radius:10px;font-size:10px;font-weight:700;
+  white-space:nowrap;flex-shrink:0}
+.r-head{background:#1a4721;border:1px solid var(--gn2);color:var(--gn)}
+.r-br{background:#1a2a4a;border:1px solid var(--ac2);color:var(--ac)}
+.r-tag{background:#2a1a3a;border:1px solid #6e4a8e;color:var(--pu)}
+.r-rm{background:#2a1a0a;border:1px solid #6e3800;color:var(--or)}
+
+/* History right */
+.hist-right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.commit-detail{flex-shrink:0;background:var(--sf2);border-bottom:1px solid var(--bd)}
+.cd-top{display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.cd-hash{font-family:var(--mono);font-size:12px;color:var(--ac);font-weight:600}
+.cd-sub{font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-meta{padding:0 12px 8px;font-size:11px;color:var(--mt);font-family:var(--mono)}
+.cd-body{padding:6px 12px;font-size:12px;color:var(--tx2);white-space:pre-wrap;
+  font-family:var(--mono);max-height:80px;overflow-y:auto;border-top:1px solid var(--bd)}
+
+/* Changed files strip */
+.cf-strip{flex-shrink:0;border-bottom:1px solid var(--bd)}
+.cf-list{max-height:120px;overflow-y:auto}
+.cf-row{display:flex;align-items:center;gap:6px;padding:3px 10px;cursor:pointer;
+  font-size:11px;font-family:var(--mono)}
+.cf-row:hover{background:var(--sf2)}
+.cf-row.sel{background:var(--sf3)}
+.cf-status{font-size:10px;font-weight:700;flex-shrink:0;width:12px;text-align:center}
+.cf-path{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
+.hist-diff{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ═══ BRANCHES TAB ═══ */
+.br-panel{flex:1;overflow-y:auto;padding:8px}
+.br-grp{margin-bottom:6px}
+.br-grp-hdr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--mt);padding:6px 4px 4px;border-bottom:1px solid var(--bd);margin-bottom:3px}
+.br-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;
+  cursor:pointer;margin-bottom:1px}
+.br-row:hover{background:var(--sf2)}
+.br-row.cur{background:var(--sf3)}
+.br-dot{font-size:10px;flex-shrink:0;width:10px}
+.br-dot.cur{color:var(--gn)}
+.br-dot.rem{color:var(--mt)}
+.br-name{flex:1;font-family:var(--mono);font-size:12px}
+.br-row.cur .br-name{color:var(--ac)}
+.br-acts{display:none;gap:3px}
+.br-row:hover .br-acts{display:flex}
+.new-br-form{padding:10px 10px 8px;border-bottom:1px solid var(--bd);background:var(--sf)}
+.new-br-form h4{font-size:11px;color:var(--mt);font-weight:600;margin-bottom:6px;
+  text-transform:uppercase;letter-spacing:.05em}
+.nbi{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;
+  color:var(--tx);font-family:var(--mono);font-size:12px;padding:6px 10px;
+  margin-bottom:6px;transition:.15s}
+.nbi:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+
+/* ═══ TAGS TAB ═══ */
+.tags-layout{display:flex;flex:1;overflow:hidden}
+.tag-col{width:260px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
+.tag-list{overflow-y:auto;flex:1}
+.t-row{display:flex;align-items:center;gap:7px;padding:7px 10px;cursor:pointer;
+  font-family:var(--mono);font-size:12px;border-bottom:1px solid rgba(48,54,61,.5)}
+.t-row:hover{background:var(--sf2)}
+.t-row.sel{background:var(--sf3)}
+.t-name{flex:1;color:var(--pu)}
+.t-date{font-size:10px;color:var(--mt)}
+.t-acts{display:none;gap:2px}
+.t-row:hover .t-acts{display:flex}
+.tag-detail{flex:1;overflow:auto;padding:14px}
+.new-tag-form{padding:10px 10px 8px;border-bottom:1px solid var(--bd);background:var(--sf)}
+.nti{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;
+  color:var(--tx);font-family:var(--mono);font-size:12px;padding:6px 10px;
+  margin-bottom:6px;transition:.15s}
+.nti:focus{outline:none;border-color:var(--ac)}
+
+/* ═══ STASH TAB ═══ */
+.stash-push{padding:10px;border-bottom:1px solid var(--bd);background:var(--sf)}
+.stash-push h4{font-size:11px;color:var(--mt);font-weight:600;margin-bottom:7px;
+  text-transform:uppercase;letter-spacing:.05em}
+.si{flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;
+  color:var(--tx);font-family:var(--mono);font-size:12px;padding:6px 10px;transition:.15s}
+.si:focus{outline:none;border-color:var(--ac)}
+
+/* ═══ COMMANDS TAB ═══ */
+.cmd-col{width:260px;flex-shrink:0;border-right:1px solid var(--bd);overflow-y:auto;background:var(--sf)}
+.cmd-grp{padding:6px 10px 4px}
+.cmd-grp-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--mt);margin-bottom:4px}
+.cmd-row{display:flex;align-items:center;padding:6px 8px;border-radius:6px;
+  cursor:pointer;margin-bottom:2px}
+.cmd-row:hover{background:var(--sf2)}
+.cmd-info{flex:1}
+.cmd-name{font-family:var(--mono);font-size:12px;color:var(--ac)}
+.cmd-desc{font-size:11px;color:var(--mt);margin-top:1px}
+
+/* ═══ OUTPUT PANEL ═══ */
+.out-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.out-toolbar{display:flex;align-items:center;gap:8px;padding:6px 12px;
+  background:var(--sf2);border-bottom:1px solid var(--bd);flex-shrink:0}
+.out-title{flex:1;font-family:var(--mono);font-size:12px;color:var(--mt)}
+.out-body{flex:1;overflow-y:auto;padding:10px 14px;font-family:var(--mono);
+  font-size:12px;line-height:1.6;background:#090d12}
+.ol{white-space:pre-wrap;word-break:break-all}.ol.ok{color:var(--gn)}.ol.err{color:var(--rd)}
+
+/* ═══ WORKSPACE TAB ═══ */
+.ws-wrap{flex:1;overflow-y:auto;padding:12px}
+.ws-row{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border:1px solid var(--bd);border-radius:8px;margin-bottom:8px;
+  background:var(--sf);cursor:pointer;transition:.15s}
+.ws-row:hover{background:var(--sf2);border-color:var(--mt)}
+.ws-name{font-weight:700;font-size:13px;min-width:130px}
+.ws-branch{font-family:var(--mono);font-size:12px;color:var(--ac);flex:1}
+.ws-path{font-size:11px;color:var(--mt);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;max-width:220px}
+.ws-changed{font-size:11px;color:var(--yw)}
+.ws-sync{font-family:var(--mono);font-size:11px}
+.ws-bad{color:var(--rd);font-size:11px}
+
+/* ═══ MODALS ═══ */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+  z-index:500;align-items:center;justify-content:center;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--sf);border:1px solid var(--bd);border-radius:12px;
+  padding:22px;width:100%;max-width:520px;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+.modal h3{font-size:15px;margin-bottom:14px;font-weight:600}
+.modal-out{background:#090d12;border:1px solid var(--bd);border-radius:6px;
+  padding:10px;font-family:var(--mono);font-size:12px;line-height:1.6;
+  max-height:300px;overflow-y:auto;margin-bottom:12px}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;align-items:center;margin-top:14px}
+.modal input,.modal select,.modal textarea{width:100%;background:var(--sf2);
+  border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:var(--mono);
+  font-size:12px;padding:7px 10px;margin-bottom:10px;transition:.15s}
+.modal input:focus,.modal select:focus,.modal textarea:focus{outline:none;
+  border-color:var(--ac);box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+.modal .ml{font-size:11px;font-weight:600;color:var(--mt);margin-bottom:4px;display:block;
+  text-transform:uppercase;letter-spacing:.04em}
+.modal .mn{font-size:11px;color:var(--mt);margin-bottom:12px}
+.radio-grp{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.radio-opt{display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;
+  padding:6px 8px;border-radius:6px;border:1px solid transparent}
+.radio-opt:hover{background:var(--sf2);border-color:var(--bd)}
+.radio-opt input{width:auto;margin:0;cursor:pointer;margin-top:2px;flex-shrink:0}
+.radio-opt .ro-label{flex:1}.ro-title{font-weight:600}
+.ro-desc{color:var(--mt);font-size:11px;margin-top:1px}
+
+/* ═══ CONTEXT MENU ═══ */
+#ctx-menu{display:none;position:fixed;background:var(--sf);border:1px solid var(--bd);
+  border-radius:8px;padding:4px;z-index:900;min-width:190px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.ctx-item{padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px;
+  color:var(--tx);user-select:none}
+.ctx-item:hover{background:var(--sf3)}
+.ctx-item.danger{color:var(--rd)}
+.ctx-sep{height:1px;background:var(--bd);margin:4px 0}
+.ctx-label{padding:4px 12px;font-size:10px;font-weight:700;color:var(--mt);
+  text-transform:uppercase;letter-spacing:.06em;user-select:none}
+
+/* ═══ TOAST ═══ */
+.toast{position:fixed;bottom:18px;right:18px;padding:9px 14px;border-radius:8px;
+  font-size:12px;z-index:1000;opacity:0;transition:opacity .2s,transform .2s;
+  pointer-events:none;transform:translateY(4px);max-width:320px}
+.toast.show{opacity:1;transform:none}
+.toast.ok{background:#162312;border:1px solid var(--gn2);color:var(--gn)}
+.toast.err{background:#2d1111;border:1px solid var(--rd2);color:var(--rd)}
+.toast.info{background:#162032;border:1px solid var(--ac2);color:var(--ac)}
+
+/* ═══ MISC ═══ */
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--sf3);
+  border-top-color:var(--ac);border-radius:50%;animation:rot .6s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.empty{padding:12px 14px;color:var(--mt);font-size:12px;font-style:italic}
+.row{display:flex;gap:6px;align-items:center}
+.kbd{background:var(--sf3);border:1px solid var(--mt);border-radius:3px;
+  padding:0 5px;font-size:10px;font-family:var(--mono);color:var(--mt);
+  display:inline-block}
+@keyframes fade-in{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
+.fade-in{animation:fade-in .15s ease-out}
+
+/* ═══ CUSTOM CONFIRM / PROMPT ═══ */
+#conf-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);
+  z-index:700;align-items:center;justify-content:center;padding:20px}
+.conf-box{background:var(--sf);border:1px solid var(--bd);border-radius:12px;
+  padding:22px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.6);
+  animation:fade-in .1s ease-out}
+.conf-title{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--tx)}
+.conf-msg{font-size:13px;line-height:1.6;margin-bottom:16px;color:var(--tx2);white-space:pre-wrap}
+.conf-inp{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;
+  color:var(--tx);font-family:var(--mono);font-size:12px;padding:7px 10px;
+  margin-bottom:14px;transition:.15s;box-sizing:border-box}
+.conf-inp:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+
+/* ═══ COMMIT COUNTER ═══ */
+.cm-footer{display:flex;align-items:center;gap:6px;margin-top:4px}
+.cm-counter{font-size:10px;color:var(--mt);font-family:var(--mono);flex:1;text-align:right}
+.cm-counter.warn{color:var(--yw)}.cm-counter.over{color:var(--rd)}
+
+/* ═══ STASH LAYOUT ═══ */
+.stash-layout{display:flex;flex:1;overflow:hidden}
+.stash-list-col{width:280px;flex-shrink:0;display:flex;flex-direction:column;
+  border-right:1px solid var(--bd);overflow:hidden}
+
+/* ═══ BLAME TABLE ═══ */
+.blame-wrap{overflow:auto;flex:1}
+.blame-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;
+  line-height:20px;white-space:pre}
+.blame-table td{padding:0;vertical-align:top}
+.blame-hash{color:var(--ac);padding:0 8px;cursor:pointer;white-space:nowrap;width:68px}
+.blame-hash:hover{text-decoration:underline}
+.blame-hash.same{color:transparent}
+.blame-author{color:var(--mt);padding:0 8px;white-space:nowrap;width:120px;
+  overflow:hidden;max-width:120px;text-overflow:ellipsis}
+.blame-author.same{color:transparent}
+.blame-date{color:var(--mt);padding:0 6px;white-space:nowrap;width:78px}
+.blame-date.same{color:transparent}
+.blame-ln{color:var(--mt);padding:0 6px 0 8px;text-align:right;
+  background:var(--sf2);border-right:1px solid var(--bd);width:40px;user-select:none}
+.blame-code{padding:0 12px;white-space:pre;color:var(--tx2)}
+.blame-tr:hover td{background:var(--sf2)}
+.blame-sep td{border-top:1px solid rgba(48,54,61,.6)}
+
+/* ═══ FILE HISTORY MODAL ═══ */
+.fhist-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+  z-index:500;align-items:center;justify-content:center;padding:20px}
+.fhist-overlay.show{display:flex}
+.fhist-modal{background:var(--sf);border:1px solid var(--bd);border-radius:12px;
+  width:100%;max-width:720px;max-height:75vh;box-shadow:0 20px 60px rgba(0,0,0,.6);
+  display:flex;flex-direction:column;overflow:hidden;animation:fade-in .15s ease-out}
+.fhist-hdr{display:flex;align-items:center;gap:8px;padding:14px 18px;
+  border-bottom:1px solid var(--bd);flex-shrink:0}
+.fhist-title{font-size:14px;font-weight:600;flex:1;
+  font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fhist-list{flex:1;overflow-y:auto}
+.fhist-row{display:flex;align-items:center;gap:10px;padding:7px 14px;
+  border-bottom:1px solid rgba(48,54,61,.4);cursor:pointer;transition:.1s}
+.fhist-row:hover{background:var(--sf2)}
+.fhist-hash{font-family:var(--mono);font-size:11px;color:var(--ac);flex-shrink:0;width:68px}
+.fhist-sub{flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fhist-meta{font-size:10px;color:var(--mt);font-family:var(--mono);flex-shrink:0}
+
+/* ═══ PULL OPTIONS ═══ */
+.pull-opts{margin-bottom:14px}
+.pull-opt{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;
+  border:1px solid transparent;border-radius:7px;cursor:pointer;font-size:12px;transition:.1s;
+  margin-bottom:4px}
+.pull-opt:hover{background:var(--sf2);border-color:var(--bd)}
+.pull-opt input{margin-top:2px;flex-shrink:0;cursor:pointer}
+.pull-opt .ro-title{font-weight:600;margin-bottom:2px}
+.pull-opt .ro-desc{font-size:11px;color:var(--mt)}
+
+/* ═══ REPO PICKER ═══ */
+.repo-picker{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;
+  border:1px solid var(--bd);border-radius:6px;background:var(--sf2);
+  cursor:pointer;font-size:13px;font-weight:700;color:var(--tx2);transition:.15s;
+  position:relative;user-select:none}
+.repo-picker:hover{background:var(--sf3);border-color:var(--mt);color:var(--tx)}
+.repo-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;
+  background:var(--sf);border:1px solid var(--bd);border-radius:8px;
+  padding:4px;z-index:900;min-width:280px;max-height:320px;overflow-y:auto;
+  box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.repo-dropdown.show{display:block}
+.repo-item{padding:7px 10px;border-radius:5px;cursor:pointer;font-size:12px;transition:.1s}
+.repo-item:hover{background:var(--sf3)}
+.repo-item.active{background:var(--sf3);border-left:2px solid var(--ac)}
+.repo-item-name{font-family:var(--mono);color:var(--tx);font-weight:600}
+.repo-item-path{font-size:10px;color:var(--mt);margin-top:2px;font-family:var(--mono)}
+
+/* ═══ GRAPH TAB ═══ */
+.graph-filters{display:flex;align-items:center;gap:8px;padding:6px 12px;
+  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;flex-wrap:wrap}
+.graph-fi{background:var(--sf2);border:1px solid var(--bd);border-radius:5px;
+  color:var(--tx);font-family:var(--mono);font-size:11px;padding:4px 9px;transition:.15s}
+.graph-fi:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+.graph-fi::placeholder{color:var(--mt)}
+select.graph-fi{cursor:pointer}
+
+/* ═══ FOLDER BROWSER ═══ */
+.browse-list{max-height:360px;overflow-y:auto;border:1px solid var(--bd);border-radius:6px;
+  background:var(--bg);margin-bottom:12px}
+.browse-row{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;
+  font-size:12px;transition:.1s;border-bottom:1px solid rgba(48,54,61,.3)}
+.browse-row:last-child{border-bottom:none}
+.browse-row:hover{background:var(--sf2)}
+.browse-row.git-repo{background:rgba(31,111,235,.06)}
+.browse-row.git-repo:hover{background:rgba(31,111,235,.12)}
+.browse-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;color:var(--mt)}
+.browse-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:var(--mono)}
+.browse-badge{font-size:10px;padding:1px 5px;border-radius:3px;
+  background:rgba(88,166,255,.15);color:var(--ac);border:1px solid rgba(88,166,255,.3);
+  flex-shrink:0;font-weight:600}
+.browse-path{font-size:11px;color:var(--mt);font-family:var(--mono);margin-bottom:8px;
+  padding:5px 8px;background:var(--sf2);border-radius:5px;border:1px solid var(--bd);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <span style="color:var(--ac);font-size:18px;line-height:1">⎔</span>
+  <div class="repo-picker" id="repoPicker" onclick="toggleRepoPicker()" title="저장소 전환">
+    <span id="repoName">gez</span> <span style="font-size:10px;color:var(--mt)">▾</span>
+    <div class="repo-dropdown" id="repoDropdown"></div>
+  </div>
+  <div class="branch-pill" id="branchPill" onclick="showBranchModal()" title="브랜치 전환">
+    ⎇ <span id="hdrBranch">main</span> ▾
+  </div>
+  <div class="sync-info">
+    <span class="ah" id="syncA"></span>
+    <span class="bh" id="syncB"></span>
+  </div>
+  <div class="spacer"></div>
+  <div class="ar-dot" id="arDot" title="자동 새로고침 토글" onclick="toggleAR()"></div>
+  <button class="hdr-btn" onclick="doUndo()"  title="마지막 작업 취소">↩ Undo</button>
+  <button class="hdr-btn" onclick="doFetch()" title="git fetch --all --prune">↓ Fetch</button>
+  <button class="hdr-btn" onclick="doPull()" title="Pull (merge / rebase 선택)">⇓ Pull</button>
+  <button class="hdr-btn primary" onclick="doPush()" title="git push">⇑ Push</button>
+  <button class="hdr-btn" onclick="refresh()" title="새로고침 (Ctrl+R)" style="padding:5px 8px">↺</button>
+  <button class="hdr-btn" onclick="showHelp()" title="키보드 단축키 (?)" style="padding:5px 8px">?</button>
+</header>
+
+<!-- ═══ TABS ═══ -->
+<div class="tabs">
+  <div class="tab active" id="tab-changes"  onclick="switchTab('changes')">
+    Changes <span class="badge" id="badge-c">0</span>
+  </div>
+  <div class="tab" id="tab-history"  onclick="switchTab('history')">History</div>
+  <div class="tab" id="tab-branches" onclick="switchTab('branches')">Branches</div>
+  <div class="tab" id="tab-tags"     onclick="switchTab('tags')">
+    Tags <span class="badge" id="badge-t">0</span>
+  </div>
+  <div class="tab" id="tab-stash"    onclick="switchTab('stash')">
+    Stash <span class="badge" id="badge-s">0</span>
+  </div>
+  <div class="tab" id="tab-commands" onclick="switchTab('commands')">
+    Commands <span class="badge" id="badge-cmd">0</span>
+  </div>
+  <div class="tab" id="tab-graph"     onclick="switchTab('graph')">Graph</div>
+  <div class="tab" id="tab-workspace" onclick="switchTab('workspace')">Workspace</div>
+</div>
+
+<!-- ═══ CONTENT ═══ -->
+<div class="content">
+
+<!-- ── CHANGES ── -->
+<div class="pane active" id="pane-changes">
+  <div class="layout">
+    <div class="file-col" id="fileCol">
+      <div class="file-sec us">
+        <div class="sec-hdr">
+          <span>Unstaged <span id="cu">0</span></span>
+          <div class="acts">
+            <button class="mini-btn" onclick="stageAll()" title="모두 스테이지">Stage All</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <input class="fi" id="fi-unstaged" placeholder="파일 필터..." oninput="filterFiles()">
+        </div>
+        <div class="flist" id="list-us"></div>
+      </div>
+      <div class="file-sec sg">
+        <div class="sec-hdr">
+          <span>Staged <span id="cs">0</span></span>
+          <div class="acts">
+            <button class="mini-btn" onclick="unstageAll()">Unstage All</button>
+          </div>
+        </div>
+        <div class="flist" id="list-sg"></div>
+      </div>
+      <div class="stash-strip">
+        <div class="sec-hdr">
+          <span>Stash <span id="cst">0</span></span>
+          <div class="acts"><button class="mini-btn" onclick="quickStash()">Push</button></div>
+        </div>
+        <div style="max-height:80px;overflow-y:auto" id="mini-stash"></div>
+      </div>
+    </div>
+    <div class="resize-handle" id="rh-changes"></div>
+    <div class="diff-panel" id="diff-main">
+      <div class="diff-toolbar">
+        <span class="diff-path" id="diffHdr">파일을 선택하면 diff가 표시됩니다</span>
+        <span id="diff-staged-label" style="font-size:11px;color:var(--mt)"></span>
+      </div>
+      <div class="diff-body" id="diffBody"></div>
+    </div>
+    <div class="commit-col" id="commitCol">
+      <div class="sec-hdr"><span>Commit</span></div>
+      <div class="commit-box">
+        <textarea id="commitMsg" placeholder="커밋 메시지 입력&#10;&#10;제목과 본문은 빈 줄로 구분합니다"
+          oninput="updateCmCounter()"></textarea>
+        <div class="cm-footer">
+          <span style="font-size:10px;color:var(--mt)">Ctrl+Enter 커밋</span>
+          <span class="cm-counter" id="cmCounter"></span>
+        </div>
+      </div>
+      <div class="commit-footer">
+        <div class="commit-opts">
+          <label><input type="checkbox" id="amendCheck"> Amend last</label>
+          <div class="spacer"></div>
+        </div>
+        <button class="btn success" onclick="doCommit()" style="width:100%;justify-content:center">
+          ✓ Commit Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── HISTORY ── -->
+<div class="pane" id="pane-history">
+  <div class="layout">
+    <div class="hist-left" id="histLeft">
+      <div class="filter-row">
+        <input class="fi" id="fi-commits" placeholder="커밋 검색 (메시지, 해시, 작성자)..." oninput="filterCommits()">
+      </div>
+      <div class="clist" id="commitItems"></div>
+    </div>
+    <div class="resize-handle" id="rh-hist"></div>
+    <div class="hist-right">
+      <!-- Commit detail (hidden until selected) -->
+      <div id="commitDetail" style="display:none">
+        <div class="commit-detail">
+          <div class="cd-top">
+            <span class="cd-hash" id="cd-hash"></span>
+            <span class="cd-sub" id="cd-sub"></span>
+            <div class="spacer"></div>
+            <button class="btn" onclick="cherryPickSelected()" title="현재 브랜치에 cherry-pick">🍒 Cherry-pick</button>
+            <button class="btn" onclick="doRevert()" title="revert 커밋 생성">↩ Revert</button>
+            <button class="btn danger" onclick="showResetModal()" title="이 커밋으로 reset">⚠ Reset to</button>
+          </div>
+          <div class="cd-meta" id="cd-meta"></div>
+          <div id="cd-body" style="display:none" class="cd-body"></div>
+        </div>
+        <div class="cf-strip">
+          <div class="sec-hdr">
+            <span>Changed Files <span id="cf-count" style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0"></span></span>
+            <span style="font-size:10px;color:var(--mt)">클릭 → 파일별 diff</span>
+          </div>
+          <div class="cf-list" id="cfList"></div>
+        </div>
+      </div>
+      <div class="hist-diff">
+        <div class="diff-toolbar">
+          <span class="diff-path" id="histHdr">커밋을 선택하면 변경사항이 표시됩니다</span>
+        </div>
+        <div class="diff-body" id="histBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── BRANCHES ── -->
+<div class="pane" id="pane-branches">
+  <div class="layout">
+    <div style="display:flex;flex-direction:column;width:100%;overflow:hidden">
+      <div class="new-br-form">
+        <h4>새 브랜치</h4>
+        <input class="nbi" id="newBranchInput" placeholder="branch-name"
+               onkeydown="if(event.key==='Enter')createBranch()">
+        <div class="row">
+          <button class="btn primary" onclick="createBranch()" style="font-size:12px">+ Create &amp; Switch</button>
+          <button class="btn" onclick="createBranchOnly()" style="font-size:12px">Create Only</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <input class="fi" id="fi-branches" placeholder="브랜치 검색..." oninput="filterBranches()">
+      </div>
+      <div class="br-panel">
+        <div id="localBranches"></div>
+        <div id="remoteBranches"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAGS ── -->
+<div class="pane" id="pane-tags">
+  <div class="tags-layout">
+    <div class="tag-col">
+      <div class="new-tag-form">
+        <div style="font-size:11px;color:var(--mt);font-weight:600;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em">새 태그</div>
+        <input class="nti" id="newTagName" placeholder="v1.0.0">
+        <input class="nti" id="newTagMsg"  placeholder="메시지 (annotated tag, 선택)">
+        <button class="btn primary" onclick="createTag()" style="font-size:12px;width:100%;justify-content:center">+ Create Tag</button>
+      </div>
+      <div class="sec-hdr"><span>Tags <span id="badge-t2">0</span></span></div>
+      <div class="tag-list" id="tagList"></div>
+    </div>
+    <div class="tag-detail" id="tagDetail"><div class="empty">태그를 선택하세요</div></div>
+  </div>
+</div>
+
+<!-- ── STASH ── -->
+<div class="pane" id="pane-stash">
+  <div class="stash-layout">
+    <div class="stash-list-col">
+      <div class="stash-push">
+        <h4>Stash Push</h4>
+        <div class="row">
+          <input class="si" id="stashMsg" placeholder="메시지 (선택사항)"
+                 onkeydown="if(event.key==='Enter')stashPushTab()">
+          <button class="btn primary" onclick="stashPushTab()" style="font-size:12px">Push</button>
+        </div>
+      </div>
+      <div class="flist" id="stashTabList" style="padding:8px"></div>
+    </div>
+    <div class="diff-panel">
+      <div class="diff-toolbar">
+        <span class="diff-path" id="stashDiffHdr">stash를 선택하면 변경사항이 표시됩니다</span>
+      </div>
+      <div class="diff-body" id="stashDiffBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── COMMANDS ── -->
+<div class="pane" id="pane-commands">
+  <div class="layout">
+    <div class="cmd-col" id="cmdPanel"><div class="empty">로딩 중...</div></div>
+    <div class="out-panel">
+      <div class="out-toolbar">
+        <span class="out-title" id="outTitle">Output</span>
+        <button class="btn" onclick="clearOut()" style="padding:3px 8px;font-size:11px">Clear</button>
+      </div>
+      <div class="out-body" id="outBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── GRAPH ── -->
+<div class="pane" id="pane-graph">
+  <div class="graph-filters">
+    <input class="graph-fi" id="fi-graph" placeholder="필터 (메시지, 해시, 작성자)..." style="width:200px"
+           oninput="filterGraph()">
+    <select class="graph-fi" id="graphBranch" onchange="filterGraph()">
+      <option value="">모든 브랜치</option>
+    </select>
+    <select class="graph-fi" id="graphCount" onchange="loadGraph()">
+      <option value="50">최근 50개</option>
+      <option value="200" selected>최근 200개</option>
+      <option value="500">최근 500개</option>
+      <option value="all">전체</option>
+    </select>
+    <button class="btn" onclick="loadGraph()" style="padding:3px 8px;font-size:11px">↺</button>
+  </div>
+  <div class="layout" style="flex:1;overflow:hidden">
+    <div style="width:400px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;background:var(--sf)">
+      <div class="clist" id="graphItems"></div>
+    </div>
+    <div class="resize-handle" id="rh-graph"></div>
+    <div class="hist-right">
+      <div id="graphCommitDetail" style="display:none">
+        <div class="commit-detail">
+          <div class="cd-top">
+            <span class="cd-hash" id="gcd-hash"></span>
+            <span class="cd-sub" id="gcd-sub"></span>
+            <div class="spacer"></div>
+            <button class="btn" onclick="cherryPickGraph()" title="Cherry-pick">🍒 Cherry-pick</button>
+            <button class="btn" onclick="createBranchFromGraph()" title="여기서 브랜치 생성">⎇ Branch here</button>
+          </div>
+          <div class="cd-meta" id="gcd-meta"></div>
+          <div id="gcd-body" style="display:none" class="cd-body"></div>
+        </div>
+      </div>
+      <div class="hist-diff" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div class="diff-toolbar">
+          <span class="diff-path" id="graphHdr">커밋을 선택하면 변경사항이 표시됩니다</span>
+        </div>
+        <div class="diff-body" id="graphBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── WORKSPACE ── -->
+<div class="pane" id="pane-workspace">
+  <div style="padding:8px 12px;background:var(--sf);border-bottom:1px solid var(--bd);
+              display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;color:var(--mt)">워크스페이스 프로젝트</span>
+    <button class="btn" onclick="loadWorkspace()" style="padding:3px 8px;font-size:11px">↺ 새로고침</button>
+  </div>
+  <div class="ws-wrap" id="wsList"></div>
+</div>
+
+</div><!-- /content -->
+
+<!-- ═══ MODALS ═══ -->
+<div class="overlay" id="ov-job" onclick="if(event.target===this&&jobDone)closeJob()">
+  <div class="modal" style="max-width:560px">
+    <h3 id="jobTitle">실행 중...</h3>
+    <div class="modal-out" id="jobOut"></div>
+    <div class="modal-btns">
+      <span id="jobSpin" class="spin"></span>
+      <button class="btn" id="jobCloseBtn" onclick="closeJob()" disabled>닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-branch" onclick="if(event.target===this)closeBranchModal()">
+  <div class="modal" style="max-width:360px">
+    <h3>브랜치 전환</h3>
+    <div id="branchModalList" style="max-height:320px;overflow-y:auto;margin-bottom:12px"></div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeBranchModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-reset" onclick="if(event.target===this)closeResetModal()">
+  <div class="modal" style="max-width:440px">
+    <h3>Reset to Commit</h3>
+    <div class="mn">
+      <span id="resetHash" style="color:var(--ac);font-family:var(--mono)"></span>으로 reset 합니다.
+    </div>
+    <span class="ml">Reset 모드 선택</span>
+    <div class="radio-grp">
+      <label class="radio-opt">
+        <input type="radio" name="rm" value="soft" checked>
+        <div class="ro-label">
+          <div class="ro-title">soft</div>
+          <div class="ro-desc">커밋만 취소. 변경사항은 Staged 상태로 유지됩니다.</div>
+        </div>
+      </label>
+      <label class="radio-opt">
+        <input type="radio" name="rm" value="mixed">
+        <div class="ro-label">
+          <div class="ro-title">mixed</div>
+          <div class="ro-desc">커밋+스테이지 취소. 파일은 Unstaged 상태로 유지됩니다.</div>
+        </div>
+      </label>
+      <label class="radio-opt">
+        <input type="radio" name="rm" value="hard">
+        <div class="ro-label">
+          <div class="ro-title" style="color:var(--rd)">hard ⚠</div>
+          <div class="ro-desc" style="color:var(--rd)">모든 변경사항을 영구 삭제합니다. 되돌릴 수 없습니다.</div>
+        </div>
+      </label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeResetModal()">취소</button>
+      <button class="btn danger" onclick="confirmReset()">Reset 실행</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-merge" onclick="if(event.target===this)closeMergeModal()">
+  <div class="modal" style="max-width:400px">
+    <h3>브랜치 병합</h3>
+    <div class="mn">
+      <span id="mergeFrom" style="color:var(--ac);font-family:var(--mono)"></span>
+      <span style="color:var(--mt)"> → </span>
+      <span id="mergeTo" style="color:var(--gn);font-family:var(--mono)"></span>
+    </div>
+    <span class="ml">병합 방식</span>
+    <select id="mergeMode">
+      <option value="normal">Regular merge (fast-forward 허용)</option>
+      <option value="no_ff">--no-ff (항상 merge commit 생성)</option>
+      <option value="squash">--squash (하나의 커밋으로 합치기)</option>
+    </select>
+    <span class="ml">메시지 (선택사항)</span>
+    <input type="text" id="mergeMsg" placeholder="병합 메시지 (비워두면 기본값)">
+    <div class="modal-btns">
+      <button class="btn" onclick="closeMergeModal()">취소</button>
+      <button class="btn primary" onclick="confirmMerge()">Merge</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rebase modal -->
+<div class="overlay" id="ov-rebase" onclick="if(event.target===this)$('ov-rebase').classList.remove('show')">
+  <div class="modal" style="max-width:400px">
+    <h3>Rebase</h3>
+    <div class="mn">현재 브랜치를 선택한 브랜치 위로 재배치합니다.</div>
+    <span class="ml">대상 브랜치</span>
+    <select id="rebaseTarget" style="width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:var(--mono);font-size:12px;padding:7px 10px;margin-bottom:10px"></select>
+    <div class="modal-btns">
+      <button class="btn" onclick="$('ov-rebase').classList.remove('show')">취소</button>
+      <button class="btn primary" onclick="confirmRebase()">Rebase</button>
+    </div>
+  </div>
+</div>
+
+<!-- Squash modal -->
+<div class="overlay" id="ov-squash" onclick="if(event.target===this)$('ov-squash').classList.remove('show')">
+  <div class="modal" style="max-width:420px">
+    <h3>Squash Commits</h3>
+    <div class="mn">최근 N개의 커밋을 하나로 합칩니다.</div>
+    <span class="ml">커밋 수 (N)</span>
+    <input type="number" id="squashN" value="2" min="2" max="50" style="margin-bottom:10px">
+    <span class="ml">새 커밋 메시지</span>
+    <textarea id="squashMsg" rows="3" placeholder="squash 후 사용할 커밋 메시지" style="margin-bottom:10px"></textarea>
+    <div class="modal-btns">
+      <button class="btn" onclick="$('ov-squash').classList.remove('show')">취소</button>
+      <button class="btn primary" onclick="confirmSquash()">Squash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Clean modal -->
+<div class="overlay" id="ov-clean" onclick="if(event.target===this)$('ov-clean').classList.remove('show')">
+  <div class="modal" style="max-width:480px">
+    <h3>Clean Untracked Files</h3>
+    <div class="mn">git에서 추적하지 않는 파일을 삭제합니다. <strong style="color:var(--rd)">되돌릴 수 없습니다.</strong></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:12px;cursor:pointer">
+      <input type="checkbox" id="cleanDirs" onchange="refreshCleanPreview()"> 디렉토리도 삭제 (-d)
+    </label>
+    <span class="ml">삭제 예정 파일 미리보기</span>
+    <div class="modal-out" id="cleanPreview" style="max-height:160px;white-space:pre;font-size:11px">미리보기 로딩 중...</div>
+    <div class="modal-btns">
+      <button class="btn" onclick="$('ov-clean').classList.remove('show')">취소</button>
+      <button class="btn danger" onclick="confirmClean()">Clean 실행 ⚠</button>
+    </div>
+  </div>
+</div>
+
+<!-- Folder browse modal -->
+<div class="overlay" id="ov-browse" onclick="if(event.target===this)$('ov-browse').classList.remove('show')">
+  <div class="modal" style="max-width:520px">
+    <h3 style="margin-bottom:10px">저장소 선택</h3>
+    <div class="browse-path" id="browsePath">로딩 중...</div>
+    <div class="browse-list" id="browseDirs">
+      <div style="padding:12px;text-align:center;color:var(--mt)">로딩 중...</div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="$('ov-browse').classList.remove('show')">취소</button>
+      <button class="btn primary" id="browseSelectBtn" disabled onclick="confirmBrowse()">이 폴더 선택</button>
+    </div>
+  </div>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu"></div>
+
+<!-- Help modal -->
+<div class="overlay" id="ov-help" onclick="if(event.target===this)closeHelp()">
+  <div class="modal" style="max-width:420px">
+    <h3 style="margin-bottom:12px">키보드 단축키</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr><td style="padding:4px 0;color:var(--mt)">전역</td><td></td></tr>
+      <tr><td><kbd class="kbd">Ctrl+R</kbd></td><td style="padding:4px 8px">새로고침</td></tr>
+      <tr><td><kbd class="kbd">Ctrl+Enter</kbd></td><td style="padding:4px 8px">커밋 (Changes 탭)</td></tr>
+      <tr><td><kbd class="kbd">Esc</kbd></td><td style="padding:4px 8px">모달 닫기</td></tr>
+      <tr><td><kbd class="kbd">?</kbd></td><td style="padding:4px 8px">이 도움말</td></tr>
+      <tr><td style="padding:8px 0 4px;color:var(--mt)">History 탭</td><td></td></tr>
+      <tr><td><kbd class="kbd">j</kbd> / <kbd class="kbd">↓</kbd></td><td style="padding:4px 8px">다음 커밋</td></tr>
+      <tr><td><kbd class="kbd">k</kbd> / <kbd class="kbd">↑</kbd></td><td style="padding:4px 8px">이전 커밋</td></tr>
+      <tr><td style="padding:8px 0 4px;color:var(--mt)">마우스</td><td></td></tr>
+      <tr><td>Right-click</td><td style="padding:4px 8px">커밋/파일 컨텍스트 메뉴</td></tr>
+      <tr><td>Drag handle</td><td style="padding:4px 8px">패널 크기 조절</td></tr>
+    </table>
+    <div class="modal-btns" style="margin-top:14px">
+      <button class="btn primary" onclick="closeHelp()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Confirm / Prompt -->
+<div id="conf-overlay">
+  <div class="conf-box">
+    <div class="conf-title" id="conf-title"></div>
+    <div class="conf-msg" id="conf-msg"></div>
+    <div id="conf-inp-row" style="display:none">
+      <input class="conf-inp" id="conf-inp" type="text" autocomplete="off">
+    </div>
+    <div class="modal-btns" style="margin-top:0">
+      <button class="btn" id="conf-cancel">취소</button>
+      <button class="btn primary" id="conf-ok">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pull options -->
+<div class="overlay" id="ov-pull" onclick="if(event.target===this)$('ov-pull').classList.remove('show')">
+  <div class="modal" style="max-width:400px">
+    <h3>Pull</h3>
+    <div class="pull-opts">
+      <label class="pull-opt">
+        <input type="radio" name="pull-mode" value="merge" checked>
+        <div><div class="ro-title">Merge</div><div class="ro-desc">원격 변경사항을 현재 브랜치에 병합합니다 (git pull)</div></div>
+      </label>
+      <label class="pull-opt">
+        <input type="radio" name="pull-mode" value="rebase">
+        <div><div class="ro-title">Rebase</div><div class="ro-desc">로컬 커밋을 원격 위에 재배치합니다 (git pull --rebase)</div></div>
+      </label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="$('ov-pull').classList.remove('show')">취소</button>
+      <button class="btn primary" onclick="doPullConfirmed()">Pull</button>
+    </div>
+  </div>
+</div>
+
+<!-- File history -->
+<div class="fhist-overlay" id="ov-fhist">
+  <div class="fhist-modal">
+    <div class="fhist-hdr">
+      <span class="fhist-title" id="fhist-title">파일 히스토리</span>
+      <button class="btn" onclick="$('ov-fhist').classList.remove('show')" style="padding:3px 9px;font-size:12px">✕</button>
+    </div>
+    <div class="fhist-list" id="fhistList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════════════════════════════════════════
+const esc = s => String(s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+// Encode string for use inside onclick="..." attributes
+const jsAttr = s => JSON.stringify(String(s)).replace(/"/g,'&quot;');
+
+const basename = p => p.replace(/\\/g,'/').split('/').pop();
+const $ = id => document.getElementById(id);
+
+// ─── Syntax Highlighting ────────────────────────────────────────────────────
+const _KW = {
+  go:'break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var nil true false error string int int8 int16 int32 int64 uint uint8 uint16 uint32 uint64 uintptr float32 float64 complex64 complex128 bool byte rune any'.split(' '),
+  js:'break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof let new of return static super switch this throw try typeof var void while with yield async await null undefined true false'.split(' '),
+  ts:'break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof let new of return static super switch this throw try typeof var void while with yield async await null undefined true false type interface enum implements abstract readonly'.split(' '),
+  py:'and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return True try while with yield'.split(' '),
+  sh:'if then else elif fi for do done while case esac in function return exit echo printf read export local source'.split(' '),
+  rs:'as break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while async await'.split(' '),
+  java:'abstract assert boolean break byte case catch char class continue default do double else enum extends final finally float for if implements import instanceof int interface long native new null package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false'.split(' '),
+  c:'auto break case char const continue default do double else enum extern float for goto if inline int long register restrict return short signed sizeof static struct switch typedef union unsigned void volatile while'.split(' '),
+};
+const _BILTINS = {
+  go:'append cap close copy delete fmt len make new panic print println real recover string'.split(' '),
+  js:'console document window Array Object String Number Boolean Promise fetch JSON Math Date Map Set Error Symbol parseInt parseFloat clearTimeout setTimeout setInterval'.split(' '),
+  py:'print len range type isinstance int str float list dict set tuple bool any all min max sum zip map filter sorted enumerate open input abs round'.split(' '),
+};
+
+function detectLang(path){
+  if(!path)return'';
+  const ext=(path.split('.').pop()||'').toLowerCase();
+  return{go:'go',js:'js',mjs:'js',cjs:'js',ts:'ts',tsx:'ts',jsx:'js',py:'py',python:'py',
+    sh:'sh',bash:'sh',zsh:'sh',rs:'rs',java:'java',c:'c',cpp:'c',cc:'c',h:'c',hpp:'c',
+    kt:'java',groovy:'java',scala:'java',swift:'c',dart:'c'}[ext]||'';
+}
+
+function hlLine(raw, lang){
+  if(!lang||!_KW[lang])return esc(raw);
+  const kws=new Set(_KW[lang]);
+  const bis=new Set(_BILTINS[lang]||[]);
+  let res='', i=0, n=raw.length;
+  while(i<n){
+    const ch=raw[i];
+    // Single-line comment
+    if((ch==='/'&&raw[i+1]==='/')&&(lang==='go'||lang==='js'||lang==='ts'||lang==='rs'||lang==='java'||lang==='c')){
+      res+=`<span class="hl-cm">${esc(raw.slice(i))}</span>`;i=n;
+    }else if(ch==='#'&&(lang==='py'||lang==='sh'||lang==='yaml')){
+      res+=`<span class="hl-cm">${esc(raw.slice(i))}</span>`;i=n;
+    // Block comment
+    }else if(ch==='/'&&raw[i+1]==='*'){
+      const e=raw.indexOf('*/',i+2);const s=e>=0?raw.slice(i,e+2):raw.slice(i);
+      res+=`<span class="hl-cm">${esc(s)}</span>`;i=e>=0?e+2:n;
+    // String literals
+    }else if((ch==='"'||ch==="'"||ch==='`')&&lang!=='sh'){
+      const q=ch;let j=i+1;
+      while(j<n&&!(raw[j]===q&&(j===0||raw[j-1]!=='\\'))){j++;}
+      if(j<n)j++;
+      res+=`<span class="hl-str">${esc(raw.slice(i,j))}</span>`;i=j;
+    // Identifiers
+    }else if(/[a-zA-Z_$]/.test(ch)){
+      let j=i+1;while(j<n&&/[a-zA-Z0-9_$]/.test(raw[j]))j++;
+      const w=raw.slice(i,j);
+      if(kws.has(w))res+=`<span class="hl-kw">${esc(w)}</span>`;
+      else if(bis.has(w))res+=`<span class="hl-bi">${esc(w)}</span>`;
+      else if(lang==='go'&&/^[A-Z]/.test(w))res+=`<span class="hl-type">${esc(w)}</span>`;
+      else res+=esc(w);
+      i=j;
+    // Numbers
+    }else if(/[0-9]/.test(ch)&&(i===0||!/[a-zA-Z_$]/.test(raw[i-1]))){
+      let j=i;while(j<n&&/[0-9a-fA-FxXbB._eE]/.test(raw[j]))j++;
+      res+=`<span class="hl-num">${esc(raw.slice(i,j))}</span>`;i=j;
+    }else{res+=esc(ch);i++;}
+  }
+  return res;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════════════
+const S = {
+  branch:'', ahead:0, behind:0,
+  staged:[], unstaged:[], stashes:[], commits:[], tags:[],
+  branches:{local:[],remote:[],current:''},
+  commands:[], project:'',
+  selFile:null, selStaged:false,
+  selCommit:null, selCommitFile:null, commitFiles:[],
+  autoRefresh:true,
+  diffLang:'',
+  dir:'',  // current repo dir ('' = server default)
+};
+let jobDone=false, toastTm, arTm;
+let mergePending='';
+const hunkReg=[];
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Commit graph — lane assignment algorithm
+// ═══════════════════════════════════════════════════════════════════════════════
+const GCOLS=['#58a6ff','#3fb950','#bc8cff','#f0883e','#d29922',
+             '#39d353','#e3b341','#ff7b72','#d2a8ff','#79c0ff',
+             '#56d364','#ffa657'];
+const LANE_W=16, LANE_H=40, DOT_R=4;
+
+function buildLanes(commits){
+  const lanes=[];
+  return commits.map(c=>{
+    const {hash,parents=[]}=c;
+    let lane=lanes.indexOf(hash);
+    if(lane===-1){
+      lane=lanes.indexOf(null);
+      if(lane===-1){lane=lanes.length;lanes.push(null);}
+      lanes[lane]=hash;
+    }
+    const before=[...lanes];
+    // Update lane: follow first parent
+    lanes[lane]=parents[0]||null;
+    // Ensure merge parents have lanes
+    for(let i=1;i<parents.length;i++){
+      const p=parents[i];
+      if(!lanes.includes(p)){
+        let slot=lanes.indexOf(null);
+        if(slot===-1){slot=lanes.length;lanes.push(null);}
+        lanes[slot]=p;
+      }
+    }
+    const after=[...lanes];
+    let w=Math.max(lane+1,before.filter(Boolean).length,after.filter(Boolean).length);
+    while(w>1&&!before[w-1]&&!after[w-1])w--;
+    return{...c,lane,before,after,w};
+  });
+}
+
+function graphSVG(c){
+  const{lane,before,after,parents=[],w}=c;
+  const svgW=w*LANE_W+4;
+  const midY=LANE_H/2;
+  const cx=lane*LANE_W+LANE_W/2;
+  const col=GCOLS[lane%GCOLS.length];
+  let p='';
+  // Continuation lines for other lanes
+  const maxL=Math.max(before.length,after.length);
+  for(let i=0;i<maxL;i++){
+    if(i===lane)continue;
+    const x=i*LANE_W+LANE_W/2;
+    const lc=GCOLS[i%GCOLS.length];
+    if(before[i]||after[i])
+      p+=`<line x1="${x}" y1="0" x2="${x}" y2="${LANE_H}" stroke="${lc}" stroke-width="1.5" stroke-opacity=".8"/>`;
+  }
+  // This lane's lines
+  if(before[lane]) p+=`<line x1="${cx}" y1="0" x2="${cx}" y2="${midY}" stroke="${col}" stroke-width="2"/>`;
+  if(after[lane])  p+=`<line x1="${cx}" y1="${midY}" x2="${cx}" y2="${LANE_H}" stroke="${col}" stroke-width="2"/>`;
+  // Merge curves to additional parents
+  parents.slice(1).forEach(par=>{
+    const pl=after.indexOf(par);
+    if(pl===-1)return;
+    const px=pl*LANE_W+LANE_W/2;
+    const pc=GCOLS[pl%GCOLS.length];
+    p+=`<path d="M${cx},${midY} C${cx},${LANE_H} ${px},${midY} ${px},${LANE_H}" stroke="${pc}" stroke-width="1.5" fill="none"/>`;
+  });
+  // Handle new branch lines going up from this commit
+  for(let i=0;i<after.length;i++){
+    if(i===lane)continue;
+    const h=after[i];
+    if(h&&parents.includes(h)&&!before.includes(h)){
+      const tx=i*LANE_W+LANE_W/2;
+      const tc=GCOLS[i%GCOLS.length];
+      p+=`<path d="M${cx},${midY} C${cx},${LANE_H} ${tx},${midY} ${tx},${LANE_H}" stroke="${tc}" stroke-width="1.5" fill="none"/>`;
+    }
+  }
+  // Commit dot
+  p+=`<circle cx="${cx}" cy="${midY}" r="${DOT_R}" fill="${col}" stroke="var(--bg)" stroke-width="1.5"/>`;
+  return`<svg width="${svgW}" height="${LANE_H}" viewBox="0 0 ${svgW} ${LANE_H}" style="flex-shrink:0;display:block">${p}</svg>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Init / Refresh
+// ═══════════════════════════════════════════════════════════════════════════════
+async function init(){
+  // Check if URL has ?dir= param (from workspace project link)
+  const urlDir=new URLSearchParams(location.search).get('dir');
+  if(urlDir) S.dir=urlDir;
+
+  await refresh();
+  loadHistory();
+  loadBranches();
+  loadCommands();
+  loadCommitTemplate();
+  startAR();
+  initResize($('rh-changes'), $('fileCol'), 160, 420);
+  initResize($('rh-hist'),    $('histLeft'), 200, 560);
+  initResize($('rh-graph'),   $('graphItems').parentElement, 240, 600);
+}
+
+function initResize(handle, target, minW, maxW){
+  if(!handle||!target)return;
+  handle.addEventListener('mousedown', e=>{
+    const startX=e.clientX, startW=target.offsetWidth;
+    handle.classList.add('active');
+    const move=ev=>{
+      const nw=Math.max(minW,Math.min(maxW,startW+(ev.clientX-startX)));
+      target.style.width=nw+'px';
+    };
+    const up=()=>{
+      handle.classList.remove('active');
+      document.removeEventListener('mousemove',move);
+      document.removeEventListener('mouseup',up);
+    };
+    document.addEventListener('mousemove',move);
+    document.addEventListener('mouseup',up);
+    e.preventDefault();
+  });
+}
+
+async function refresh(){
+  try{
+    const[st,stash]=await Promise.all([api('/api/status'),api('/api/stash')]);
+    S.branch=st.branch; S.ahead=st.ahead; S.behind=st.behind;
+    S.staged=st.staged||[]; S.unstaged=st.unstaged||[]; S.stashes=stash||[];
+    $('repoName').textContent=st.repo_name||'repo';
+    $('hdrBranch').textContent=S.branch;
+    $('syncA').textContent=S.ahead  >0?'↑'+S.ahead :'';
+    $('syncB').textContent=S.behind >0?'↓'+S.behind:'';
+    $('badge-c').textContent=S.staged.length+S.unstaged.length;
+    $('badge-s').textContent=S.stashes.length;
+    $('cu').textContent=S.unstaged.length;
+    $('cs').textContent=S.staged.length;
+    $('cst').textContent=S.stashes.length;
+    filterFiles();
+    renderMiniStash();
+    if(S.selFile){
+      const lst=S.selStaged?S.staged:S.unstaged;
+      if(lst.find(f=>f.path===S.selFile)) loadDiff(S.selFile,S.selStaged);
+      else clearDiff();
+    }
+  }catch(e){toast('새로고침 실패: '+e.message,'err');}
+}
+
+function startAR(){
+  clearInterval(arTm);
+  if(!S.autoRefresh)return;
+  $('arDot').classList.add('on');
+  arTm=setInterval(()=>{if(!document.hidden)refresh();},30000);
+}
+function toggleAR(){
+  S.autoRefresh=!S.autoRefresh; startAR();
+  if(!S.autoRefresh) $('arDot').classList.remove('on');
+  toast(S.autoRefresh?'자동 새로고침 켜짐':'자동 새로고침 꺼짐','info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tab switching
+// ═══════════════════════════════════════════════════════════════════════════════
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  $('tab-'+name).classList.add('active');
+  $('pane-'+name).classList.add('active');
+  if(name==='history')   loadHistory();
+  if(name==='branches')  loadBranches();
+  if(name==='tags')      loadTags();
+  if(name==='stash')     renderStashTab();
+  if(name==='commands')  loadCommands();
+  if(name==='workspace') loadWorkspace();
+  if(name==='graph')     loadGraph();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// File rendering
+// ═══════════════════════════════════════════════════════════════════════════════
+function xyClass(xy){
+  const c=xy[0]!==' '&&xy[0]!=='?'?xy[0]:(xy[1]==='?'?'q':xy[1]);
+  return c===' '?'M':c;
+}
+function xyLabel(xy){
+  if(xy[0]==='?'&&xy[1]==='?')return'?';
+  return xy[0]!==' '&&xy[0]!=='?'?xy[0]:xy[1];
+}
+function filterFiles(){
+  const q=($('fi-unstaged').value||'').toLowerCase();
+  renderFiles('list-us',S.unstaged.filter(f=>!q||f.path.toLowerCase().includes(q)),false);
+  renderFiles('list-sg',S.staged,true);
+}
+function renderFiles(id,files,staged){
+  const el=$(id);
+  if(!files.length){
+    el.innerHTML=`<div class="empty">${staged?'스테이지된 파일 없음':'변경된 파일 없음'}</div>`;
+    return;
+  }
+  el.innerHTML=files.map(f=>{
+    const sel=f.path===S.selFile&&staged===S.selStaged;
+    const unt=f.xy[0]==='?'&&f.xy[1]==='?';
+    const cf =f.xy==='UU'||f.xy==='AA'||f.xy==='DD';
+    return`<div class="fi-row${sel?' sel':''}" onclick="selFile(${jsAttr(f.path)},${staged})"
+      oncontextmenu="fileCtx(event,${jsAttr(f.path)},${staged})">
+      <span class="xy ${xyClass(f.xy)}">${xyLabel(f.xy)}</span>
+      ${cf?'<span class="conflict-badge">!</span>':''}
+      <span class="fn" title="${esc(f.path)}">${esc(basename(f.path))}</span>
+      <div class="fbtns">
+        ${staged
+          ?`<button class="ibt un" onclick="event.stopPropagation();unstageFile(${jsAttr(f.path)})">↓</button>`
+          :`<button class="ibt st" onclick="event.stopPropagation();stageFile(${jsAttr(f.path)})">+</button>
+            ${!unt?`<button class="ibt ds" onclick="event.stopPropagation();discardFile(${jsAttr(f.path)})">✗</button>`:''}`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Diff renderer — with line numbers and optional hunk staging
+// ═══════════════════════════════════════════════════════════════════════════════
+function parseHunkHdr(line){
+  const m=line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+  return m?{old:parseInt(m[1]),nw:parseInt(m[2])}:null;
+}
+
+function renderDiff(cid, text, opts){
+  opts=opts||{};
+  const el=$(cid);
+  if(!text||!text.trim()){el.innerHTML='<div class="empty">변경사항 없음</div>';return;}
+  hunkReg.length=0;
+  let curLang=opts.lang||S.diffLang||'';
+  const lines=text.split('\n');
+  let html='';
+  let fhBuf=[];
+  let hBuf=[], hIdx=-1;
+  let inFH=false, oldL=0, nwL=0;
+
+  function flushH(){
+    if(hIdx>=0&&hBuf.length>0) hunkReg[hIdx].hunk=hBuf.join('\n')+'\n';
+    hBuf=[]; hIdx=-1;
+  }
+
+  for(let i=0;i<lines.length;i++){
+    const ln=lines[i];
+
+    if(ln.startsWith('diff --git')){
+      flushH(); fhBuf=[ln]; inFH=true;
+      html+=`<div class="diff-meta file-sep">${esc(ln)}</div>`;
+
+    }else if(inFH&&(ln.startsWith('index ')||ln.startsWith('--- ')||ln.startsWith('+++ ')||
+        ln.startsWith('new file')||ln.startsWith('deleted file')||ln.startsWith('old mode')||
+        ln.startsWith('new mode')||ln.startsWith('rename')||ln.startsWith('similarity')||
+        ln.startsWith('Binary'))){
+      fhBuf.push(ln);
+      html+=`<div class="diff-meta">${esc(ln)}</div>`;
+      if(ln.startsWith('+++ ')){
+        // Auto-detect language from diff file path (e.g. "+++ b/main.go")
+        const fp=ln.replace(/^\+\+\+ [ab]\//,'').replace(/^\+\+\+ /,'');
+        curLang=detectLang(fp);
+        inFH=false;
+      }
+
+    }else if(ln.startsWith('@@')){
+      flushH(); inFH=false;
+      const hdr=parseHunkHdr(ln);
+      if(hdr){oldL=hdr.old;nwL=hdr.nw;}
+      if(opts.hunk){
+        const idx=hunkReg.length;
+        hunkReg.push({fh:fhBuf.join('\n')+'\n',hunk:''});
+        hIdx=idx; hBuf=[ln];
+        const lbl=opts.staged?'↓ Unstage Hunk':'+ Stage Hunk';
+        const cls=opts.staged?'un':'st';
+        html+=`<div class="diff-hunk-hdr">
+          <span class="diff-hunk-text">${esc(ln)}</span>
+          <button class="ibt ${cls}" onclick="event.stopPropagation();applyHunk(${idx},${!!opts.staged})">${lbl}</button>
+        </div>`;
+      }else{
+        html+=`<div class="diff-hunk-hdr"><span class="diff-hunk-text">${esc(ln)}</span></div>`;
+      }
+
+    }else if(ln.startsWith('<<<<<<<')||ln.startsWith('=======')||ln.startsWith('>>>>>>>')){
+      if(hIdx>=0)hBuf.push(ln);
+      const cls=ln.startsWith('<<<<<<<')?'conf-ours':ln.startsWith('=======')?'conf-sep':'conf-theirs';
+      html+=`<div class="diff-line ${cls}">
+        <span class="ln"></span><span class="ln"></span>
+        <span class="lm">!</span><span class="lc">${esc(ln)}</span>
+      </div>`;
+
+    }else if(!inFH&&ln.startsWith('+')&&!ln.startsWith('+++')){
+      if(hIdx>=0)hBuf.push(ln);
+      html+=`<div class="diff-line add">
+        <span class="ln"></span><span class="ln">${nwL++}</span>
+        <span class="lm" style="color:var(--gn)">+</span>
+        <span class="lc">${hlLine(ln.slice(1),curLang)||'\u00a0'}</span>
+      </div>`;
+
+    }else if(!inFH&&ln.startsWith('-')&&!ln.startsWith('---')){
+      if(hIdx>=0)hBuf.push(ln);
+      html+=`<div class="diff-line del">
+        <span class="ln">${oldL++}</span><span class="ln"></span>
+        <span class="lm" style="color:var(--rd)">-</span>
+        <span class="lc">${hlLine(ln.slice(1),curLang)||'\u00a0'}</span>
+      </div>`;
+
+    }else if(!inFH&&ln.startsWith('\\')){
+      if(hIdx>=0)hBuf.push(ln);
+      html+=`<div class="diff-meta" style="color:var(--mt);padding-left:92px">${esc(ln)}</div>`;
+
+    }else if(!inFH){
+      if(hIdx>=0)hBuf.push(ln);
+      const skip=ln===''||ln==='\ No newline at end of file';
+      if(!skip){
+        html+=`<div class="diff-line">
+          <span class="ln">${oldL++}</span><span class="ln">${nwL++}</span>
+          <span class="lm"> </span>
+          <span class="lc">${hlLine(ln.slice(1),curLang)||'\u00a0'}</span>
+        </div>`;
+      }
+    }else{
+      html+=`<div class="diff-meta">${esc(ln)}</div>`;
+    }
+  }
+  flushH();
+  el.innerHTML=html;
+}
+
+async function applyHunk(idx, unstage){
+  const e=hunkReg[idx];
+  if(!e||!e.hunk){toast('헝크 비어있음','err');return;}
+  try{
+    await postApi('/api/stage/hunk',{patch:e.fh+e.hunk,unstage});
+    await refresh();
+    toast(unstage?'헝크 언스테이지됨':'헝크 스테이지됨','ok');
+    if(S.selFile) await loadDiff(S.selFile,S.selStaged);
+  }catch(ex){toast('헝크 오류: '+ex.message,'err');}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Changes tab — file select / diff
+// ═══════════════════════════════════════════════════════════════════════════════
+async function selFile(path, staged){
+  S.selFile=path; S.selStaged=staged;
+  filterFiles();
+  await loadDiff(path, staged);
+}
+async function loadDiff(path, staged){
+  S.diffLang=detectLang(path);
+  $('diffHdr').innerHTML=`<strong>${esc(basename(path))}</strong> <span style="color:var(--mt)">${esc(path)}</span>`;
+  $('diff-staged-label').textContent=staged?'[staged]':'[unstaged]';
+  $('diffBody').innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    const r=await api('/api/diff?path='+encodeURIComponent(path)+'&staged='+staged);
+    renderDiff('diffBody',r.content,{hunk:true,staged});
+  }catch(e){
+    $('diffBody').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+function clearDiff(){
+  S.selFile=null;
+  $('diffHdr').textContent='파일을 선택하면 diff가 표시됩니다';
+  $('diff-staged-label').textContent='';
+  $('diffBody').innerHTML='';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Mini stash
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderMiniStash(){
+  const el=$('mini-stash');
+  if(!S.stashes.length){el.innerHTML='<div class="stash-row" style="font-style:italic;color:var(--mt);font-size:11px;padding:4px 10px">stash 없음</div>';return;}
+  el.innerHTML=S.stashes.slice(0,5).map((s,i)=>`
+    <div class="stash-row">
+      <span class="sn" title="${esc(s)}">${esc(s)}</span>
+      <button class="ibt st" onclick="stashPop('stash@{${i}}')" title="pop">↑</button>
+      <button class="ibt ds" onclick="stashDrop('stash@{${i}}')" title="drop">✗</button>
+    </div>`).join('');
+}
+function renderStashTab(){
+  const el=$('stashTabList');
+  if(!S.stashes.length){
+    el.innerHTML='<div class="empty">stash 없음</div>';
+    $('stashDiffHdr').textContent='stash를 선택하면 변경사항이 표시됩니다';
+    $('stashDiffBody').innerHTML='';
+    return;
+  }
+  el.innerHTML=S.stashes.map((s,i)=>`
+    <div class="fi-row" onclick="loadStashDiff('stash@{${i}}')" style="cursor:pointer">
+      <span class="fn" style="color:var(--ac);flex:1">${esc(s)}</span>
+      <div class="fbtns" style="display:flex;gap:3px">
+        <button class="ibt st" onclick="event.stopPropagation();stashPop('stash@{${i}}')" title="pop">↑ Pop</button>
+        <button class="ibt ds" onclick="event.stopPropagation();stashDrop('stash@{${i}}')" title="drop">✗ Drop</button>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// History — commit list with visual graph
+// ═══════════════════════════════════════════════════════════════════════════════
+async function loadHistory(){
+  try{S.commits=await api('/api/commits?n=200');filterCommits();}catch(e){}
+}
+
+function filterCommits(){
+  const q=($('fi-commits').value||'').toLowerCase();
+  const fc=q?S.commits.filter(c=>
+    c.subject.toLowerCase().includes(q)||
+    c.short.toLowerCase().includes(q)||
+    c.author.toLowerCase().includes(q)
+  ):S.commits;
+  renderCommits(fc);
+}
+
+function parseRefs(r){return r?r.split(',').map(x=>x.trim()).filter(Boolean):[];}
+function refHtml(r){
+  if(r.startsWith('HEAD ->')) return`<span class="ref r-head">HEAD→${esc(r.replace('HEAD ->','').trim())}</span>`;
+  if(r.startsWith('tag:'))    return`<span class="ref r-tag">${esc(r.replace('tag:','').trim())}</span>`;
+  if(r.includes('/'))         return`<span class="ref r-rm">${esc(r)}</span>`;
+  return`<span class="ref r-br">${esc(r)}</span>`;
+}
+
+function renderCommits(commits){
+  const withLanes=buildLanes(commits);
+  $('commitItems').innerHTML=withLanes.map(c=>{
+    const refs=parseRefs(c.refs);
+    const refsH=refs.length?`<div class="crefs">${refs.map(refHtml).join('')}</div>`:'';
+    return`<div class="citem${S.selCommit===c.hash?' sel':''}"
+      onclick="selectCommit(${jsAttr(c.hash)})"
+      oncontextmenu="commitCtx(event,${jsAttr(c.hash)})">
+      ${graphSVG(c)}
+      <div class="citem-inner">
+        ${refsH}
+        <div class="csub">${esc(c.subject)}</div>
+        <div class="cmeta">
+          <span class="chash">${esc(c.short)}</span>
+          <span>${esc(c.author)}</span>
+          <span style="margin-left:auto">${esc(c.date)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('')||'<div class="empty">커밋 없음</div>';
+}
+
+async function selectCommit(hash){
+  S.selCommit=hash; S.selCommitFile=null;
+  filterCommits();
+
+  const c=S.commits.find(x=>x.hash===hash);
+  $('commitDetail').style.display='block';
+  $('cd-hash').textContent=hash.slice(0,12);
+  $('cd-sub').textContent=c?c.subject:'';
+
+  // Load full commit detail (body, stats)
+  try{
+    const d=await api('/api/commit/'+encodeURIComponent(hash));
+    const lines=d.message.split('\n');
+    const subject=lines[0];
+    const body=lines.slice(1).join('\n').trim();
+    $('cd-sub').textContent=subject;
+    $('cd-meta').textContent=`${d.author} <${d.email}>  ·  ${d.date}  ·  ${hash}`;
+    if(body){
+      $('cd-body').textContent=body;
+      $('cd-body').style.display='block';
+    }else{
+      $('cd-body').style.display='none';
+    }
+  }catch(e){
+    $('cd-meta').textContent=c?`${c.author}  ·  ${c.date}  ·  ${hash}`:'';
+    $('cd-body').style.display='none';
+  }
+
+  // Load changed files
+  loadCommitFiles(hash);
+
+  // Load full diff
+  $('histHdr').innerHTML=`commit <strong style="color:var(--ac)">${esc(hash.slice(0,12))}</strong>`;
+  $('histBody').innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    const r=await api('/api/diff?hash='+encodeURIComponent(hash));
+    renderDiff('histBody',r.content,{});
+  }catch(e){
+    $('histBody').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+
+async function loadCommitFiles(hash){
+  $('cfList').innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    S.commitFiles=await api('/api/diff/stat?hash='+encodeURIComponent(hash));
+    $('cf-count').textContent='('+S.commitFiles.length+'개 파일)';
+    renderCommitFiles();
+  }catch(e){
+    $('cfList').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+function renderCommitFiles(){
+  const el=$('cfList');
+  if(!S.commitFiles.length){el.innerHTML='<div class="empty">변경 파일 없음</div>';return;}
+  el.innerHTML=S.commitFiles.map(f=>{
+    const col=f.status==='A'?'var(--gn)':f.status==='D'?'var(--rd)':f.status[0]==='R'?'var(--or)':'var(--yw)';
+    return`<div class="cf-row${S.selCommitFile===f.path?' sel':''}"
+      onclick="selCommitFile(${jsAttr(f.path)},${jsAttr(S.selCommit)})"
+      oncontextmenu="histFileCtx(event,${jsAttr(f.path)})">
+      <span class="cf-status" style="color:${col}">${esc(f.status[0])}</span>
+      <span class="cf-path" title="${esc(f.path)}">${esc(f.path)}</span>
+    </div>`;
+  }).join('');
+}
+function histFileCtx(e,path){
+  ctxPath=path;
+  showCtx(e,[
+    {label:basename(path),action:false},
+    '-',
+    {icon:'📋',label:'File History',fn:'file-hist'},
+    {icon:'👁',label:'Blame (diff view)',fn:'blame-file'},
+  ]);
+}
+async function selCommitFile(path, hash){
+  S.selCommitFile=path; S.diffLang=detectLang(path); renderCommitFiles();
+  $('histHdr').innerHTML=`<strong>${esc(basename(path))}</strong> <span style="color:var(--mt)">${esc(path)}</span>  <span style="color:var(--mt)">@</span> <span style="color:var(--ac);font-family:var(--mono)">${hash.slice(0,8)}</span>`;
+  $('histBody').innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    const r=await api('/api/diff?hash='+encodeURIComponent(hash)+'&path='+encodeURIComponent(path));
+    renderDiff('histBody',r.content,{});
+  }catch(e){
+    $('histBody').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+
+async function cherryPickSelected(){
+  if(!S.selCommit){toast('커밋을 먼저 선택하세요','err');return;}
+  await jobModal('Cherry-pick '+S.selCommit.slice(0,8),'/api/cherry-pick',{hash:S.selCommit});
+  await refresh(); loadHistory();
+}
+async function doRevert(){
+  if(!S.selCommit){toast('커밋을 먼저 선택하세요','err');return;}
+  if(!await showConfirm(`커밋 ${S.selCommit.slice(0,12)}을 revert 하겠습니까?\n\n새로운 revert 커밋이 생성됩니다.`,
+    {title:'Revert 커밋', okLabel:'Revert 실행'})) return;
+  await jobModal('Revert '+S.selCommit.slice(0,8),'/api/revert',{hash:S.selCommit});
+  await refresh(); loadHistory();
+}
+function showResetModal(){
+  if(!S.selCommit){toast('커밋을 먼저 선택하세요','err');return;}
+  $('resetHash').textContent=S.selCommit.slice(0,12);
+  document.querySelector('input[name="rm"][value="soft"]').checked=true;
+  $('ov-reset').classList.add('show');
+}
+function closeResetModal(){$('ov-reset').classList.remove('show');}
+async function confirmReset(){
+  const mode=document.querySelector('input[name="rm"]:checked').value;
+  if(mode==='hard'&&!await showConfirm('⚠ hard reset은 모든 미저장 변경사항을 영구 삭제합니다.\n\n정말 실행하겠습니까?',
+    {title:'Hard Reset 경고', okLabel:'Hard Reset', danger:true})) return;
+  closeResetModal();
+  try{
+    await postApi('/api/reset-to',{hash:S.selCommit,mode});
+    await refresh(); loadHistory();
+    toast(`reset --${mode} 완료`,'ok');
+  }catch(e){toast(e.message,'err');}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Branches
+// ═══════════════════════════════════════════════════════════════════════════════
+async function loadBranches(){
+  try{S.branches=await api('/api/branches');filterBranches();}catch(e){}
+}
+function filterBranches(){
+  const q=($('fi-branches')||{value:''}).value.toLowerCase();
+  const loc=S.branches.local.filter(b=>!q||b.toLowerCase().includes(q));
+  const rem=S.branches.remote.filter(b=>!q||b.toLowerCase().includes(q));
+  renderBranchList(loc,rem);
+}
+function renderBranchList(loc,rem){
+  $('localBranches').innerHTML=`
+    <div class="br-grp">
+      <div class="br-grp-hdr">Local Branches (${loc.length})</div>
+      ${loc.map(b=>`
+        <div class="br-row${b===S.branches.current?' cur':''}"
+             oncontextmenu="branchCtx(event,${jsAttr(b)})">
+          <span class="br-dot${b===S.branches.current?' cur':' rem'}">●</span>
+          <span class="br-name">${esc(b)}</span>
+          <div class="br-acts">
+            ${b!==S.branches.current
+              ?`<button class="ibt st"  onclick="switchBranch(${jsAttr(b)})">Switch</button>
+                <button class="ibt inf" onclick="showMergeModal(${jsAttr(b)})" title="현재 브랜치에 병합">Merge</button>
+                <button class="ibt un"  onclick="renameBranch(${jsAttr(b)})" title="이름 변경">Rename</button>
+                <button class="ibt ds"  onclick="deleteBranch(${jsAttr(b)})">✗</button>`
+              :`<span style="font-size:11px;color:var(--gn)">현재 브랜치</span>`
+            }
+          </div>
+        </div>`).join('')}
+    </div>`;
+  $('remoteBranches').innerHTML=`
+    <div class="br-grp">
+      <div class="br-grp-hdr">Remote Branches (${rem.length})</div>
+      ${rem.map(b=>`
+        <div class="br-row">
+          <span class="br-dot rem">○</span>
+          <span class="br-name" style="color:var(--mt)">${esc(b)}</span>
+          <div class="br-acts">
+            <button class="ibt st" onclick="checkoutRemote(${jsAttr(b)})">Checkout</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function branchCtx(e, branch){
+  ctxBranch=branch;
+  const isCurrent=branch===S.branches.current;
+  showCtx(e,[
+    {label:branch,action:false},
+    '-',
+    ...(isCurrent?[
+      {label:'현재 브랜치',action:false},
+      '-',
+      {icon:'↑',label:'Squash commits',fn:'squash'},
+      {icon:'🧹',label:'Clean untracked',fn:'clean'},
+    ]:[
+      {icon:'⎇',label:'Switch',fn:'br-switch'},
+      {icon:'⊕',label:'Merge into '+(S.branches.current||'HEAD'),fn:'br-merge'},
+      {icon:'↑',label:'Rebase '+(S.branches.current||'HEAD')+' onto this',fn:'br-rebase'},
+      '-',
+      {icon:'✎',label:'Rename',fn:'br-rename'},
+      {icon:'✗',label:'Delete',fn:'br-delete',danger:true},
+    ]),
+  ]);
+}
+function showBranchModal(){
+  $('branchModalList').innerHTML=S.branches.local.map(b=>`
+    <div class="fi-row${b===S.branches.current?' sel':''}"
+         onclick="switchBranch(${jsAttr(b)});closeBranchModal()">
+      <span style="font-size:12px;width:16px">${b===S.branches.current?'●':'○'}</span>
+      <span class="fn">${esc(b)}</span>
+    </div>`).join('');
+  $('ov-branch').classList.add('show');
+}
+function closeBranchModal(){$('ov-branch').classList.remove('show');}
+
+function showMergeModal(fromBranch){
+  mergePending=fromBranch;
+  $('mergeFrom').textContent=fromBranch;
+  $('mergeTo').textContent=S.branches.current||S.branch;
+  $('mergeMode').value='normal';
+  $('mergeMsg').value='';
+  $('ov-merge').classList.add('show');
+}
+function closeMergeModal(){$('ov-merge').classList.remove('show');}
+async function confirmMerge(){
+  const mode=$('mergeMode').value, msg=$('mergeMsg').value.trim();
+  closeMergeModal();
+  const body={branch:mergePending,message:msg};
+  if(mode==='no_ff') body.no_ff=true;
+  if(mode==='squash') body.squash=true;
+  await jobModal('Merge '+mergePending,'/api/merge',body);
+  await refresh(); loadBranches();
+}
+async function renameBranch(oldName){
+  const newName=await showPrompt('새 이름을 입력하세요:', oldName, {title:'브랜치 이름 변경', okLabel:'변경'});
+  if(!newName||newName===oldName)return;
+  try{
+    await postApi('/api/branch/rename',{old:oldName,new:newName});
+    loadBranches(); await refresh();
+    toast(oldName+' → '+newName,'ok');
+  }catch(e){toast(e.message,'err');}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tags
+// ═══════════════════════════════════════════════════════════════════════════════
+async function loadTags(){
+  try{
+    S.tags=await api('/api/tags');
+    $('badge-t').textContent=$('badge-t2').textContent=S.tags.length;
+    renderTagList();
+  }catch(e){}
+}
+function renderTagList(){
+  const el=$('tagList');
+  if(!S.tags.length){el.innerHTML='<div class="empty">태그 없음</div>';return;}
+  el.innerHTML=S.tags.map(t=>`
+    <div class="t-row">
+      <span class="t-name">${esc(t.name)}</span>
+      <span class="t-date">${t.date}</span>
+      <div class="t-acts">
+        <button class="ibt st"  onclick="tagPush(${jsAttr(t.name)})" title="원격에 push">↑</button>
+        <button class="ibt ds"  onclick="deleteTag(${jsAttr(t.name)})" title="삭제">✗</button>
+      </div>
+    </div>`).join('');
+}
+async function createTag(){
+  const name=$('newTagName').value.trim(), msg=$('newTagMsg').value.trim();
+  if(!name)return;
+  try{
+    await postApi('/api/tag',{name,message:msg});
+    $('newTagName').value=''; $('newTagMsg').value='';
+    await loadTags(); toast('태그 생성: '+name,'ok');
+  }catch(e){toast(e.message,'err');}
+}
+async function deleteTag(name){
+  if(!await showConfirm(`태그 '${name}'을 삭제할까요?`,
+    {title:'태그 삭제', okLabel:'삭제', danger:true})) return;
+  try{await deleteApi('/api/tag',{name});await loadTags();toast(name+' 삭제됨','info');}
+  catch(e){toast(e.message,'err');}
+}
+async function tagPush(name){await jobModal('Tag push: '+name,'/api/tag/push',{name});}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Commands
+// ═══════════════════════════════════════════════════════════════════════════════
+let gezBuiltinCmds=[];
+
+async function loadCommands(){
+  try{
+    const [r, builtins]=await Promise.all([api('/api/custom'), api('/api/gez-commands').catch(()=>[])]);
+    S.commands=r.commands||[]; S.project=r.project||'';
+    gezBuiltinCmds=builtins||[];
+    $('badge-cmd').textContent=S.commands.length;
+    renderCommands();
+  }catch(e){}
+}
+function renderCommands(){
+  const el=$('cmdPanel');
+  let html='';
+
+  // Custom commands section
+  if(S.commands.length){
+    const grps={};
+    for(const c of S.commands){const g=c.group||'기타';(grps[g]=grps[g]||[]).push(c);}
+    html+=`<div style="padding:5px 10px 2px;font-size:11px;color:var(--mt)">
+      Project 커스텀 명령어: <span style="color:var(--ac)">${esc(S.project)}</span>
+    </div>`+Object.entries(grps).map(([g,cmds])=>`
+      <div class="cmd-grp">
+        <div class="cmd-grp-name">${esc(g)}</div>
+        ${cmds.map(c=>`
+          <div class="cmd-row" onclick="runCommand(${jsAttr(c.name)})">
+            <div class="cmd-info">
+              <div class="cmd-name">${esc(c.name)}</div>
+              ${c.description?`<div class="cmd-desc">${esc(c.description)}</div>`:''}
+            </div>
+            <button class="ibt st" onclick="event.stopPropagation();runCommand(${jsAttr(c.name)})"
+                    style="margin-left:8px">▶</button>
+          </div>`).join('')}
+      </div>`).join('');
+  } else {
+    html+=`<div style="padding:10px 12px;color:var(--mt);font-size:12px;border-bottom:1px solid var(--bd)">
+      <span>커스텀 명령어 없음</span>
+      <button class="ibt inf" style="margin-left:8px" onclick="runBuiltinCommand('custom detect',['custom','detect'])">
+        auto-detect
+      </button>
+    </div>`;
+  }
+
+  // gez built-in commands section
+  if(gezBuiltinCmds.length){
+    const grps={};
+    for(const c of gezBuiltinCmds){const g=c.group||'기타';(grps[g]=grps[g]||[]).push(c);}
+    html+=`<div style="padding:6px 10px 2px;font-size:10px;color:var(--mt);font-weight:700;
+                 text-transform:uppercase;letter-spacing:.07em;border-top:1px solid var(--bd);
+                 margin-top:4px;background:var(--sf2)">gez 내장 명령어</div>`;
+    html+=Object.entries(grps).map(([g,cmds])=>`
+      <div class="cmd-grp">
+        <div class="cmd-grp-name">${esc(g)}</div>
+        ${cmds.map(c=>`
+          <div class="cmd-row" onclick="runBuiltinCommand(${jsAttr(c.name)},${JSON.stringify(c.args)})">
+            <div class="cmd-info">
+              <div class="cmd-name" style="font-family:var(--mono);font-size:11px">gez ${esc(c.name)}</div>
+              ${c.desc?`<div class="cmd-desc">${esc(c.desc)}</div>`:''}
+            </div>
+            <button class="ibt inf" onclick="event.stopPropagation();runBuiltinCommand(${jsAttr(c.name)},${JSON.stringify(c.args)})"
+                    style="margin-left:8px">▶</button>
+          </div>`).join('')}
+      </div>`).join('');
+  }
+  el.innerHTML=html||`<div style="padding:14px;color:var(--mt);font-size:12px">로딩 중...</div>`;
+}
+async function runCommand(name){
+  $('outTitle').textContent='▶ '+name;
+  const out=$('outBody'); out.innerHTML='';
+  try{
+    const r=await postApi('/api/run',{type:'custom',name,project:S.project});
+    streamToEl(r.id,out);
+  }catch(e){addLine(out,'error: '+e.message,'err');}
+}
+async function runBuiltinCommand(name, args){
+  $('outTitle').textContent='gez '+name;
+  const out=$('outBody'); out.innerHTML='';
+  switchTab('commands');
+  try{
+    const r=await postApi(apiQ('/api/run'),{type:'builtin',args});
+    streamToEl(r.id,out);
+  }catch(e){addLine(out,'error: '+e.message,'err');}
+}
+function streamToEl(id,container){
+  const es=new EventSource('/api/stream/'+id);
+  es.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    if(msg.type==='output') addLine(container,msg.data,'');
+    else if(msg.type==='done'){
+      addLine(container,msg.exit===0?'\n✓ 완료 (exit 0)':'\n✗ 실패 (exit '+msg.exit+')',msg.exit===0?'ok':'err');
+      es.close();
+    }
+  };
+  es.onerror=()=>{addLine(container,'stream error','err');es.close();};
+}
+function addLine(el,text,cls){
+  const d=document.createElement('div');
+  d.className='ol '+cls; d.textContent=text;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+function clearOut(){$('outBody').innerHTML='';$('outTitle').textContent='Output';}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Workspace
+// ═══════════════════════════════════════════════════════════════════════════════
+async function loadWorkspace(){
+  const el=$('wsList'); el.innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    const ps=await api('/api/workspace');
+    if(!ps.length){el.innerHTML='<div class="empty">워크스페이스 프로젝트 없음<br><br><code style="font-family:var(--mono);background:var(--sf2);padding:2px 6px;border-radius:3px">gez ws add [경로]</code> 로 추가하세요</div>';return;}
+    el.innerHTML=ps.map(p=>{
+      if(!p.valid) return`<div class="ws-row" style="opacity:.5">
+        <span class="ws-name">${esc(p.name)}</span>
+        <span class="ws-bad">⚠ 경로 없음</span>
+        <span class="ws-path">${esc(p.path)}</span>
+      </div>`;
+      const sync=[
+        p.ahead?`<span style="color:var(--gn)">↑${p.ahead}</span>`:'',
+        p.behind?`<span style="color:var(--rd)">↓${p.behind}</span>`:'',
+      ].filter(Boolean).join(' ');
+      return`<div class="ws-row" onclick="openProject(${jsAttr(p.path)})">
+        <span class="ws-name">${esc(p.name)}</span>
+        <span class="ws-branch">⎇ ${esc(p.branch||'?')}</span>
+        <span class="ws-sync">${sync}</span>
+        ${p.changed?`<span class="ws-changed">${p.changed} 변경</span>`:''}
+        <span class="ws-path">${esc(p.path)}</span>
+      </div>`;
+    }).join('');
+  }catch(e){el.innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;}
+}
+function openProject(path){switchRepo(path);switchTab('changes');}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Context menus
+// ═══════════════════════════════════════════════════════════════════════════════
+let ctxHash='', ctxPath='', ctxStaged=false, ctxBranch='';
+
+function showCtx(e, items){
+  e.preventDefault();
+  const menu=$('ctx-menu');
+  menu.innerHTML=items.map(item=>{
+    if(item==='-')return'<div class="ctx-sep"></div>';
+    if(item.label&&!item.action)return`<div class="ctx-label">${item.label}</div>`;
+    return`<div class="ctx-item${item.danger?' danger':''}" onclick="ctxDo(${jsAttr(item.fn)})">${item.icon||''} ${item.label}</div>`;
+  }).join('');
+  const x=Math.min(e.clientX,window.innerWidth-menu.offsetWidth-20);
+  const y=Math.min(e.clientY,window.innerHeight-160);
+  menu.style.cssText=`display:block;left:${x}px;top:${y}px`;
+}
+function hideCtx(){$('ctx-menu').style.display='none';}
+
+async function ctxDo(fn){
+  hideCtx();
+  switch(fn){
+    case'cherrypick':        await cherryPickSelected(); break;
+    case'revert':            await doRevert(); break;
+    case'reset-soft':        await doResetDirect('soft'); break;
+    case'reset-mixed':       await doResetDirect('mixed'); break;
+    case'reset-hard':        await doResetDirect('hard'); break;
+    case'copyhash':          navigator.clipboard.writeText(ctxHash.slice(0,12)); toast('해시 복사됨','ok'); break;
+    case'copyfullhash':      navigator.clipboard.writeText(ctxHash); toast('전체 해시 복사됨','ok'); break;
+    case'newtag':            await createTagAt(ctxHash); break;
+    case'branch-from-commit':await createBranchFromCommit(ctxHash); break;
+    case'diff-file':         await loadDiff(ctxPath,ctxStaged); break;
+    case'stage-file':        await stageFile(ctxPath); break;
+    case'unstage-file':      await unstageFile(ctxPath); break;
+    case'discard-file':      await discardFile(ctxPath); break;
+    case'blame-file':        await loadBlame(ctxPath); break;
+    case'file-hist':         await showFileHistory(ctxPath); break;
+    case'br-switch':         await switchBranch(ctxBranch); break;
+    case'br-merge':          showMergeModal(ctxBranch); break;
+    case'br-rebase':         showRebaseModal(ctxBranch); break;
+    case'br-rename':         await renameBranch(ctxBranch); break;
+    case'br-delete':         await deleteBranch(ctxBranch); break;
+    case'squash':            showSquashModal(); break;
+    case'clean':             await showCleanModal(); break;
+  }
+}
+
+async function doResetDirect(mode){
+  if(!S.selCommit){toast('커밋을 먼저 선택하세요','err');return;}
+  if(mode==='hard'&&!await showConfirm('⚠ hard reset — 모든 변경사항이 삭제됩니다.\n\n계속하시겠습니까?',
+    {title:'Hard Reset', okLabel:'Reset', danger:true})) return;
+  try{
+    await postApi('/api/reset-to',{hash:S.selCommit,mode});
+    await refresh(); loadHistory();
+    toast(`reset --${mode} 완료`,'ok');
+  }catch(e){toast(e.message,'err');}
+}
+
+function commitCtx(e, hash){
+  ctxHash=hash; S.selCommit=hash;
+  showCtx(e,[
+    {label:'커밋 작업',action:false},
+    '-',
+    {icon:'🍒',label:'Cherry-pick',fn:'cherrypick'},
+    {icon:'↩',label:'Revert',fn:'revert'},
+    {icon:'⎇',label:'Create branch from here',fn:'branch-from-commit'},
+    '-',
+    {icon:'↑',label:'Reset here (soft)',fn:'reset-soft'},
+    {icon:'↕',label:'Reset here (mixed)',fn:'reset-mixed'},
+    {icon:'⚠',label:'Reset here (hard)',fn:'reset-hard',danger:true},
+    '-',
+    {icon:'🏷',label:'Create tag here',fn:'newtag'},
+    {icon:'📋',label:'Copy hash (short)',fn:'copyhash'},
+    {icon:'📄',label:'Copy full hash',fn:'copyfullhash'},
+  ]);
+}
+function fileCtx(e, path, staged){
+  ctxPath=path; ctxStaged=staged;
+  showCtx(e,[
+    {label:basename(path),action:false},
+    '-',
+    ...(staged?[
+      {icon:'↓',label:'Unstage',fn:'unstage-file'},
+    ]:[
+      {icon:'+',label:'Stage',fn:'stage-file'},
+      {icon:'✗',label:'Discard changes',fn:'discard-file',danger:true},
+    ]),
+    '-',
+    {icon:'👁',label:'Blame (diff view)',fn:'blame-file'},
+    {icon:'📋',label:'File History',fn:'file-hist'},
+  ]);
+}
+
+async function loadBlame(path){
+  $('diffHdr').innerHTML=`<strong style="color:var(--pu)">blame</strong> <span style="color:var(--mt)">${esc(path)}</span>`;
+  $('diff-staged-label').textContent='';
+  $('diffBody').innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    const r=await api('/api/blame?path='+encodeURIComponent(path));
+    renderPorcelainBlame('diffBody',r.content);
+  }catch(e){
+    $('diffBody').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+
+async function createTagAt(hash){
+  const name=await showPrompt('태그 이름:', '', {title:'커밋에 태그 생성', okLabel:'다음'});
+  if(!name) return;
+  const msg=await showPrompt('메시지 (빈칸 = lightweight tag):', '', {title:'태그 메시지', okLabel:'생성'});
+  if(msg===null) return; // 취소
+  try{
+    await postApi('/api/tag',{name,message:msg||'',hash});
+    toast('태그 생성: '+name,'ok'); loadTags();
+  }catch(e){toast(e.message,'err');}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Git operations
+// ═══════════════════════════════════════════════════════════════════════════════
+async function stageFile(path){
+  try{
+    await postApi('/api/stage',{path}); await refresh();
+    if(S.selFile===path&&!S.selStaged){S.selStaged=true;loadDiff(path,true);}
+  }catch(e){toast(e.message,'err');}
+}
+async function unstageFile(path){
+  try{await postApi('/api/unstage',{path});await refresh();}catch(e){toast(e.message,'err');}
+}
+async function discardFile(path){
+  if(!await showConfirm(`'${basename(path)}' 변경사항을 취소할까요?\n\n파일이 마지막 커밋 상태로 복구됩니다.`,
+    {title:'변경사항 취소', okLabel:'취소 실행', danger:true})) return;
+  try{await postApi('/api/discard',{path});await refresh();if(S.selFile===path)clearDiff();}
+  catch(e){toast(e.message,'err');}
+}
+async function stageAll()  {try{await postApi('/api/stage',{all:true});await refresh();}catch(e){toast(e.message,'err');}}
+async function unstageAll(){try{await postApi('/api/unstage',{all:true});await refresh();}catch(e){toast(e.message,'err');}}
+
+async function doCommit(){
+  const msg=$('commitMsg').value.trim(), amend=$('amendCheck').checked;
+  if(!amend&&!msg){toast('커밋 메시지를 입력해주세요','err');return;}
+  if(!amend&&S.staged.length===0&&S.unstaged.length>0)await postApi('/api/stage',{all:true});
+  try{
+    await postApi('/api/commit',{message:msg,amend});
+    $('commitMsg').value=''; $('amendCheck').checked=false;
+    await refresh(); loadHistory(); toast('커밋 완료!','ok');
+  }catch(e){toast(e.message,'err');}
+}
+
+async function doFetch(){await jobModal('Fetch','/api/fetch',{});}
+async function doPull() {$('ov-pull').classList.add('show');}
+async function doPush() {
+  const body=(S.ahead===0&&S.behind===0)?{set_upstream:true}:{};
+  await jobModal('Push','/api/push',body);
+}
+async function doUndo() {await jobModal('Undo','/api/undo',{});await refresh();loadHistory();}
+
+async function switchBranch(name){
+  try{await postApi('/api/branch/switch',{name});await refresh();loadBranches();toast(name+' 브랜치로 전환','ok');}
+  catch(e){toast(e.message,'err');}
+}
+async function createBranch(){
+  const name=$('newBranchInput').value.trim(); if(!name)return;
+  try{
+    await postApi('/api/branch/create',{name,switch:true});
+    $('newBranchInput').value=''; await refresh(); loadBranches(); toast(name+' 생성 & 전환','ok');
+  }catch(e){toast(e.message,'err');}
+}
+async function createBranchOnly(){
+  const name=$('newBranchInput').value.trim(); if(!name)return;
+  try{
+    await postApi('/api/branch/create',{name,switch:false});
+    $('newBranchInput').value=''; loadBranches(); toast(name+' 생성됨','ok');
+  }catch(e){toast(e.message,'err');}
+}
+async function deleteBranch(name){
+  if(!await showConfirm(`'${name}' 브랜치를 삭제할까요?`,
+    {title:'브랜치 삭제', okLabel:'삭제', danger:true})) return;
+  try{await deleteApi('/api/branch',{name,force:false});loadBranches();toast(name+' 삭제됨','info');}
+  catch(e){toast(e.message,'err');}
+}
+async function checkoutRemote(name){
+  const local=name.split('/').slice(1).join('/');
+  try{
+    await postApi('/api/branch/create',{name:local,switch:true});
+    await refresh(); loadBranches(); toast(local+' 체크아웃','ok');
+  }catch(e){
+    try{await postApi('/api/branch/switch',{name:local});await refresh();loadBranches();toast(local+' 전환','ok');}
+    catch(e2){toast(e2.message,'err');}
+  }
+}
+
+async function quickStash(){
+  try{await postApi('/api/stash/push',{});await refresh();toast('Stash 저장됨','ok');}
+  catch(e){toast(e.message,'err');}
+}
+async function stashPushTab(){
+  const msg=$('stashMsg').value.trim();
+  try{
+    await postApi('/api/stash/push',{message:msg});
+    $('stashMsg').value=''; await refresh(); renderStashTab(); toast('Stash 저장됨','ok');
+  }catch(e){toast(e.message,'err');}
+}
+async function stashPop(ref){
+  try{await postApi('/api/stash/pop',{ref});await refresh();renderStashTab();toast('Stash 적용됨','ok');}
+  catch(e){toast(e.message,'err');}
+}
+async function stashDrop(ref){
+  if(!await showConfirm(`${ref} stash를 삭제할까요?`,
+    {title:'Stash 삭제', okLabel:'삭제', danger:true})) return;
+  try{await postApi('/api/stash/drop',{ref});await refresh();renderStashTab();toast('Stash 삭제됨','info');}
+  catch(e){toast(e.message,'err');}
+}
+
+// ── Commit template ──────────────────────────────────────────────────────────
+async function loadCommitTemplate(){
+  try{
+    const r=await api('/api/commit-template');
+    if(r.template){
+      const ta=$('commitMsg');
+      if(!ta.value) ta.placeholder=r.template.trim().split('\n')[0]||'커밋 메시지 입력...';
+    }
+  }catch(e){}
+}
+
+// ─── Job modal ────────────────────────────────────────────────────────────────
+async function jobModal(title, endpoint, body){
+  jobDone=false;
+  $('jobTitle').textContent=title+'...';
+  $('jobOut').innerHTML='';
+  $('jobSpin').style.display='inline-block';
+  $('jobCloseBtn').disabled=true;
+  $('ov-job').classList.add('show');
+  try{
+    const r=await postApi(endpoint,body);
+    const out=$('jobOut');
+    const es=new EventSource('/api/stream/'+r.id);
+    es.onmessage=ev=>{
+      const msg=JSON.parse(ev.data);
+      if(msg.type==='output') addLine(out,msg.data,'');
+      else if(msg.type==='done'){
+        jobDone=true;
+        const ok=msg.exit===0;
+        addLine(out,ok?'\n✓ 완료':'\n✗ 실패 (exit '+msg.exit+')',ok?'ok':'err');
+        $('jobTitle').textContent=title+(ok?' — 완료':' — 실패');
+        $('jobSpin').style.display='none';
+        $('jobCloseBtn').disabled=false;
+        if(ok) refresh();
+        es.close();
+      }
+    };
+    es.onerror=()=>{
+      jobDone=true; addLine($('jobOut'),'stream error','err');
+      $('jobSpin').style.display='none'; $('jobCloseBtn').disabled=false; es.close();
+    };
+  }catch(e){
+    jobDone=true; addLine($('jobOut'),e.message,'err');
+    $('jobSpin').style.display='none'; $('jobCloseBtn').disabled=false;
+  }
+}
+function closeJob(){$('ov-job').classList.remove('show');}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// API helpers — all calls include ?dir= when S.dir is set
+// ═══════════════════════════════════════════════════════════════════════════════
+function apiQ(url){
+  if(!S.dir) return url;
+  const sep=url.includes('?')?'&':'?';
+  return url+sep+'dir='+encodeURIComponent(S.dir);
+}
+async function api(url){
+  const r=await fetch(apiQ(url));
+  const d=await r.json();
+  if(!d.ok) throw new Error(d.error||'API error');
+  return d.data;
+}
+async function postApi(url,body){
+  const r=await fetch(apiQ(url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!d.ok) throw new Error(d.error||'API error');
+  return d.data;
+}
+async function deleteApi(url,body){
+  const r=await fetch(apiQ(url),{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!d.ok) throw new Error(d.error||'API error');
+  return d.data;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════════════════════════════════════════
+function toast(msg, type='info'){
+  const el=$('toast');
+  el.className='toast show '+(type==='ok'?'ok':type==='err'?'err':'info');
+  el.textContent=msg;
+  clearTimeout(toastTm);
+  toastTm=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Keyboard shortcuts
+// ═══════════════════════════════════════════════════════════════════════════════
+function showHelp(){$('ov-help').classList.add('show');}
+function closeHelp(){$('ov-help').classList.remove('show');}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    // Custom confirm modal takes priority
+    if($('conf-overlay').style.display==='flex'){$('conf-cancel').click();return;}
+    $('ov-fhist').classList.remove('show');
+    $('ov-pull').classList.remove('show');
+    $('ov-rebase').classList.remove('show');
+    $('ov-squash').classList.remove('show');
+    $('ov-clean').classList.remove('show');
+    $('ov-browse').classList.remove('show');
+    $('repoDropdown').classList.remove('show');
+    closeBranchModal(); closeResetModal(); closeMergeModal(); closeHelp(); hideCtx();
+    if(jobDone) closeJob();
+  }
+  if((e.ctrlKey||e.metaKey)&&e.key==='r'){e.preventDefault();refresh();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){
+    const at=$('.tab.active');
+    if(at&&at.id==='tab-changes') doCommit();
+  }
+  // j/k navigation for commit list
+  if(!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    const active=$('.pane.active');
+    if(!active) return;
+    const tag=document.activeElement?.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA') return;
+    if(e.key==='?'){showHelp();return;}
+    if(active.id==='pane-history'){
+      if(e.key==='j'||e.key==='ArrowDown'){
+        e.preventDefault(); navCommit(1);
+      }else if(e.key==='k'||e.key==='ArrowUp'){
+        e.preventDefault(); navCommit(-1);
+      }
+    }
+  }
+});
+
+function navCommit(dir){
+  const items=$('commitItems').querySelectorAll('.citem');
+  if(!items.length)return;
+  let idx=Array.from(items).findIndex(el=>el.classList.contains('sel'));
+  idx=Math.max(0,Math.min(items.length-1,idx+dir));
+  items[idx].click();
+  items[idx].scrollIntoView({block:'nearest'});
+}
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#ctx-menu')) hideCtx();
+  if(!e.target.closest('#repoPicker')) $('repoDropdown').classList.remove('show');
+});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Custom confirm / prompt
+// ═══════════════════════════════════════════════════════════════════════════════
+let _confResolve=null;
+
+function _setupConf(title,msg,okLabel,danger,withInput,defVal){
+  $('conf-title').textContent=title;
+  $('conf-msg').textContent=msg;
+  $('conf-ok').textContent=okLabel||'확인';
+  $('conf-ok').className='btn '+(danger?'danger':'primary');
+  const row=$('conf-inp-row');
+  if(withInput){
+    row.style.display='block';
+    $('conf-inp').value=defVal||'';
+    setTimeout(()=>$('conf-inp').focus(),40);
+  } else {
+    row.style.display='none';
+  }
+  const ov=$('conf-overlay');
+  ov.style.display='flex';
+  const cleanup=result=>{
+    ov.style.display='none';
+    if(_confResolve){_confResolve(result);_confResolve=null;}
+  };
+  $('conf-cancel').onclick=()=>cleanup(withInput?null:false);
+  $('conf-ok').onclick=()=>cleanup(withInput?$('conf-inp').value:true);
+  $('conf-inp').onkeydown=e=>{
+    if(e.key==='Enter')$('conf-ok').click();
+    if(e.key==='Escape')$('conf-cancel').click();
+  };
+}
+function showConfirm(msg,{title='확인',okLabel='확인',danger=false}={}){
+  return new Promise(r=>{_confResolve=r;_setupConf(title,msg,okLabel,danger,false,null);});
+}
+function showPrompt(msg,defVal='',{title='입력',okLabel='확인'}={}){
+  return new Promise(r=>{_confResolve=r;_setupConf(title,msg,okLabel,false,true,defVal);});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Commit message counter
+// ═══════════════════════════════════════════════════════════════════════════════
+function updateCmCounter(){
+  const v=$('commitMsg').value;
+  const sub=(v.split('\n')[0]||'').length;
+  const el=$('cmCounter');
+  if(!sub){el.textContent='';el.className='cm-counter';return;}
+  el.textContent=`${sub}/72`;
+  el.className='cm-counter'+(sub>80?' over':sub>72?' warn':'');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Pull with rebase option
+// ═══════════════════════════════════════════════════════════════════════════════
+async function doPullConfirmed(){
+  const rebase=document.querySelector('input[name="pull-mode"]:checked').value==='rebase';
+  $('ov-pull').classList.remove('show');
+  await jobModal('Pull'+(rebase?' --rebase':''),'/api/pull',{rebase});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Stash diff preview
+// ═══════════════════════════════════════════════════════════════════════════════
+async function loadStashDiff(ref){
+  $('stashDiffHdr').innerHTML=`<strong style="color:var(--pu)">${esc(ref)}</strong>`;
+  $('stashDiffBody').innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    const r=await api('/api/stash/show?ref='+encodeURIComponent(ref));
+    if(!r.content.trim()){
+      $('stashDiffBody').innerHTML='<div class="empty">변경사항 없음</div>';
+      return;
+    }
+    renderDiff('stashDiffBody',r.content,{});
+  }catch(e){
+    $('stashDiffBody').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Blame viewer — porcelain format parser
+// ═══════════════════════════════════════════════════════════════════════════════
+function parsePorcelainBlame(text){
+  const entries=[];
+  const meta={};
+  const lines=text.split('\n');
+  let i=0;
+  while(i<lines.length){
+    const l=lines[i];
+    if(!l){i++;continue;}
+    const m=l.match(/^([0-9a-f]{40}) \d+ (\d+)/);
+    if(m){
+      const hash=m[1], lineNum=parseInt(m[2]);
+      if(!meta[hash]) meta[hash]={author:'',date:'',summary:''};
+      const entry={hash,lineNum,code:''};
+      i++;
+      while(i<lines.length){
+        const h=lines[i];
+        if(h.startsWith('\t')){entry.code=h.slice(1);i++;break;}
+        if(h.startsWith('author '))     meta[hash].author=h.slice(7);
+        else if(h.startsWith('author-time ')) meta[hash].date=new Date(parseInt(h.slice(12))*1000).toISOString().slice(0,10);
+        else if(h.startsWith('summary '))    meta[hash].summary=h.slice(8);
+        i++;
+      }
+      entries.push({...entry,...meta[hash]});
+    }else{i++;}
+  }
+  return entries;
+}
+
+function renderPorcelainBlame(elId, text){
+  const el=$(elId);
+  const entries=parsePorcelainBlame(text);
+  if(!entries.length){el.innerHTML='<div class="empty">blame 데이터 없음</div>';return;}
+  let lastHash='';
+  el.innerHTML=`<div class="blame-wrap"><table class="blame-table"><tbody>${
+    entries.map(e=>{
+      const isNew=e.hash!==lastHash;
+      lastHash=e.hash;
+      const shortHash=e.hash.slice(0,8);
+      return`<tr class="blame-tr${isNew?' blame-sep':''}">
+        <td class="blame-hash${isNew?'':' same'}" title="${esc(e.summary)}"
+            onclick="${isNew?`selBlameHash(${jsAttr(e.hash)})`:''}">
+          ${isNew?shortHash:''}
+        </td>
+        <td class="blame-author${isNew?'':' same'}" title="${esc(e.author)}">${isNew?esc(e.author.split(' ')[0]||e.author):''}</td>
+        <td class="blame-date${isNew?'':' same'}">${isNew?e.date:''}</td>
+        <td class="blame-ln">${e.lineNum}</td>
+        <td class="blame-code">${esc(e.code)||'\u00a0'}</td>
+      </tr>`;
+    }).join('')
+  }</tbody></table></div>`;
+}
+
+async function selBlameHash(hash){
+  switchTab('history');
+  await loadHistory();
+  await selectCommit(hash);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// File history
+// ═══════════════════════════════════════════════════════════════════════════════
+async function showFileHistory(path){
+  $('fhist-title').textContent='히스토리: '+path;
+  $('fhistList').innerHTML='<div class="empty">로딩 중...</div>';
+  $('ov-fhist').classList.add('show');
+  try{
+    const commits=await api('/api/file/log?path='+encodeURIComponent(path)+'&n=100');
+    if(!commits.length){$('fhistList').innerHTML='<div class="empty">커밋 없음</div>';return;}
+    $('fhistList').innerHTML=commits.map(c=>`
+      <div class="fhist-row" onclick="jumpToFileCommit(${jsAttr(c.hash)},${jsAttr(path)})">
+        <span class="fhist-hash">${esc(c.short)}</span>
+        <span class="fhist-sub" title="${esc(c.subject)}">${esc(c.subject)}</span>
+        <span class="fhist-meta">${esc(c.author.split(' ')[0]||c.author)}  ${esc(c.date)}</span>
+      </div>`).join('');
+  }catch(e){$('fhistList').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;}
+}
+async function jumpToFileCommit(hash,path){
+  $('ov-fhist').classList.remove('show');
+  switchTab('history');
+  await loadHistory();
+  await selectCommit(hash);
+  // 해당 파일을 잠시 후 선택
+  setTimeout(()=>{
+    const found=S.commitFiles.find(f=>f.path===path||f.path.endsWith('/'+path));
+    if(found) selCommitFile(found.path, hash);
+  }, 400);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Repo picker — multi-directory support
+// ═══════════════════════════════════════════════════════════════════════════════
+async function toggleRepoPicker(){
+  const dd=$('repoDropdown');
+  if(dd.classList.contains('show')){dd.classList.remove('show');return;}
+  dd.innerHTML='<div class="repo-item" style="color:var(--mt)">로딩 중...</div>';
+  dd.classList.add('show');
+  try{
+    const repos=await fetch('/api/repos').then(r=>r.json()).then(d=>d.data||[]);
+    const listHtml=repos.map(r=>`
+      <div class="repo-item${r.path===S.dir||(S.dir===''&&r.path===repos[0]?.path)?' active':''}"
+           onclick="event.stopPropagation();switchRepo(${jsAttr(r.path)})">
+        <div class="repo-item-name">${esc(r.name)}</div>
+        <div class="repo-item-path">${esc(r.path)}</div>
+      </div>`).join('');
+    dd.innerHTML=listHtml+`
+      <div style="border-top:1px solid var(--bd);padding:6px 8px">
+        <button class="btn" style="width:100%;justify-content:center;font-size:11px"
+                onclick="event.stopPropagation();dd.classList.remove('show');openBrowseModal()">
+          📁 다른 폴더 선택...
+        </button>
+      </div>`;
+  }catch(e){dd.innerHTML=`<div class="repo-item" style="color:var(--rd)">${esc(e.message)}</div>`;}
+}
+
+// ── Folder browser ──────────────────────────────────────────────────────────
+let browseCurrentPath='';
+
+async function openBrowseModal(){
+  $('ov-browse').classList.add('show');
+  $('browseSelectBtn').disabled=true;
+  await browseDir(S.dir||'~');
+}
+
+async function browseDir(path){
+  browseCurrentPath=path;
+  $('browsePath').textContent='로딩 중...';
+  $('browseSelectBtn').disabled=true;
+  $('browseDirs').innerHTML='<div style="padding:12px;text-align:center;color:var(--mt)">로딩 중...</div>';
+  try{
+    const d=await fetch('/api/browse?path='+encodeURIComponent(path)).then(r=>r.json());
+    if(!d.ok) throw new Error(d.error||'오류');
+    const{path:p,parent,dirs,is_git}=d.data;
+    browseCurrentPath=p;
+    $('browsePath').textContent=p;
+    $('browseSelectBtn').disabled=!is_git;
+    let html='';
+    if(parent){
+      html+=`<div class="browse-row" onclick="browseDir(${jsAttr(parent)})">
+        <span class="browse-icon" style="font-size:12px">↑</span>
+        <span class="browse-name" style="color:var(--mt)">..</span>
+      </div>`;
+    }
+    (dirs||[]).forEach(d=>{
+      html+=`<div class="browse-row${d.is_git?' git-repo':''}"
+                  onclick="browseDir(${jsAttr(d.path)})">
+        <span class="browse-icon">${d.is_git?'⎔':'📁'}</span>
+        <span class="browse-name">${esc(d.name)}</span>
+        ${d.is_git?'<span class="browse-badge">git</span>':''}
+      </div>`;
+    });
+    if(!html) html='<div style="padding:12px;text-align:center;color:var(--mt)">폴더 없음</div>';
+    $('browseDirs').innerHTML=html;
+  }catch(e){
+    $('browseDirs').innerHTML=`<div style="padding:12px;color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+
+async function confirmBrowse(){
+  $('ov-browse').classList.remove('show');
+  if(browseCurrentPath) await switchRepo(browseCurrentPath);
+}
+
+async function switchRepo(path){
+  $('repoDropdown').classList.remove('show');
+  const prevDir=S.dir;
+  S.dir=path;
+  S.selFile=null; S.selCommit=null;
+  try{
+    const[st,stash]=await Promise.all([
+      fetch(apiQ('/api/status')).then(r=>r.json()),
+      fetch(apiQ('/api/stash')).then(r=>r.json()),
+    ]);
+    if(!st.ok){toast('저장소를 찾을 수 없습니다: '+path,'err');S.dir=prevDir;return;}
+    // Confirm actual dir from server (workDir may have resolved a different path)
+    if(st.data?.dir) S.dir=st.data.dir;
+    S.branch=st.data.branch; S.ahead=st.data.ahead; S.behind=st.data.behind;
+    S.staged=st.data.staged||[]; S.unstaged=st.data.unstaged||[];
+    S.stashes=stash.data||[];
+    $('repoName').textContent=st.data.repo_name||S.dir.split('/').pop();
+    $('hdrBranch').textContent=S.branch;
+    $('syncA').textContent=S.ahead>0?'↑'+S.ahead:'';
+    $('syncB').textContent=S.behind>0?'↓'+S.behind:'';
+    $('badge-c').textContent=S.staged.length+S.unstaged.length;
+    $('badge-s').textContent=S.stashes.length;
+    $('cu').textContent=S.unstaged.length;
+    $('cs').textContent=S.staged.length;
+    $('cst').textContent=S.stashes.length;
+    filterFiles(); renderMiniStash();
+    loadHistory(); loadBranches(); loadTags(); loadCommands();
+    toast('저장소: '+(st.data.repo_name||path.split('/').pop()),'ok');
+  }catch(e){toast('전환 실패: '+e.message,'err');S.dir=prevDir;}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Graph tab
+// ═══════════════════════════════════════════════════════════════════════════════
+let graphCommits=[], selGraphCommit=null;
+
+async function loadGraph(){
+  const n=$('graphCount').value;
+  const url=n==='all'?'/api/commits':'/api/commits?n='+n;
+  try{
+    graphCommits=await api(url);
+    updateGraphBranchFilter();
+    filterGraph();
+  }catch(e){$('graphItems').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;}
+}
+
+function updateGraphBranchFilter(){
+  const sel=$('graphBranch');
+  const cur=sel.value;
+  const branches=new Set();
+  for(const c of graphCommits){
+    if(c.refs) parseRefs(c.refs).forEach(r=>{
+      if(r.startsWith('HEAD ->')){branches.add(r.replace('HEAD ->','').trim());}
+      else if(!r.includes('/')&&!r.startsWith('tag:')&&r){branches.add(r);}
+    });
+  }
+  sel.innerHTML='<option value="">모든 브랜치</option>'+
+    [...branches].map(b=>`<option value="${esc(b)}"${b===cur?' selected':''}>${esc(b)}</option>`).join('');
+}
+
+function filterGraph(){
+  const q=($('fi-graph').value||'').toLowerCase();
+  const br=$('graphBranch').value;
+  let fc=graphCommits;
+  if(q) fc=fc.filter(c=>
+    c.subject.toLowerCase().includes(q)||
+    c.short.toLowerCase().includes(q)||
+    c.author.toLowerCase().includes(q)
+  );
+  if(br) fc=fc.filter(c=>{
+    const refs=parseRefs(c.refs||'');
+    return refs.some(r=>{
+      if(r.startsWith('HEAD ->')) return r.replace('HEAD ->','').trim()===br;
+      return r===br;
+    });
+  });
+  renderGraphCommits(fc);
+}
+
+function renderGraphCommits(commits){
+  const withLanes=buildLanes(commits);
+  $('graphItems').innerHTML=withLanes.map(c=>{
+    const refs=parseRefs(c.refs||'');
+    const refsH=refs.length?`<div class="crefs">${refs.map(refHtml).join('')}</div>`:'';
+    return`<div class="citem${selGraphCommit===c.hash?' sel':''}"
+      onclick="selectGraphCommit(${jsAttr(c.hash)})"
+      oncontextmenu="commitCtx(event,${jsAttr(c.hash)})">
+      ${graphSVG(c)}
+      <div class="citem-inner">
+        ${refsH}
+        <div class="csub">${esc(c.subject)}</div>
+        <div class="cmeta">
+          <span class="chash">${esc(c.short)}</span>
+          <span>${esc(c.author)}</span>
+          <span style="margin-left:auto">${esc(c.date)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('')||'<div class="empty">커밋 없음</div>';
+}
+
+async function selectGraphCommit(hash){
+  selGraphCommit=hash;
+  filterGraph();
+  const c=graphCommits.find(x=>x.hash===hash);
+  $('graphCommitDetail').style.display='block';
+  $('gcd-hash').textContent=hash.slice(0,12);
+  $('gcd-sub').textContent=c?c.subject:'';
+  try{
+    const d=await api('/api/commit/'+encodeURIComponent(hash));
+    const lines=d.message.split('\n');
+    $('gcd-sub').textContent=lines[0];
+    $('gcd-meta').textContent=`${d.author} <${d.email}>  ·  ${d.date}  ·  ${hash}`;
+    const body=lines.slice(1).join('\n').trim();
+    if(body){$('gcd-body').textContent=body;$('gcd-body').style.display='block';}
+    else{$('gcd-body').style.display='none';}
+  }catch(e){
+    $('gcd-meta').textContent=c?`${c.author}  ·  ${c.date}  ·  ${hash}`:'';
+    $('gcd-body').style.display='none';
+  }
+  $('graphHdr').innerHTML=`commit <strong style="color:var(--ac)">${esc(hash.slice(0,12))}</strong>`;
+  $('graphBody').innerHTML='<div class="empty">로딩 중...</div>';
+  try{
+    const r=await api('/api/diff?hash='+encodeURIComponent(hash));
+    renderDiff('graphBody',r.content,{});
+  }catch(e){
+    $('graphBody').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;
+  }
+}
+
+async function cherryPickGraph(){
+  if(!selGraphCommit){toast('커밋을 먼저 선택하세요','err');return;}
+  const prev=S.selCommit; S.selCommit=selGraphCommit;
+  await cherryPickSelected(); S.selCommit=prev;
+}
+
+async function createBranchFromGraph(){
+  if(!selGraphCommit){toast('커밋을 먼저 선택하세요','err');return;}
+  await createBranchFromCommit(selGraphCommit);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// New git operations
+// ═══════════════════════════════════════════════════════════════════════════════
+async function createBranchFromCommit(hash){
+  const name=await showPrompt('새 브랜치 이름:','',{title:'브랜치 생성 ('+hash.slice(0,8)+')',okLabel:'생성'});
+  if(!name) return;
+  try{
+    await postApi('/api/branch/from-commit',{name,hash});
+    toast(name+' 생성됨','ok'); loadBranches();
+  }catch(e){toast(e.message,'err');}
+}
+
+function showRebaseModal(onto){
+  const sel=$('rebaseTarget');
+  sel.innerHTML=S.branches.local.map(b=>`<option value="${esc(b)}"${b===onto?' selected':''}>${esc(b)}</option>`).join('')
+    + S.branches.remote.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
+  if(onto) sel.value=onto;
+  $('ov-rebase').classList.add('show');
+}
+
+async function confirmRebase(){
+  const onto=$('rebaseTarget').value;
+  if(!onto) return;
+  $('ov-rebase').classList.remove('show');
+  await jobModal('Rebase onto '+onto,'/api/rebase',{onto});
+  await refresh(); loadHistory(); loadBranches();
+}
+
+function showSquashModal(){
+  $('squashN').value='2';
+  $('squashMsg').value='';
+  $('ov-squash').classList.add('show');
+}
+
+async function confirmSquash(){
+  const n=parseInt($('squashN').value);
+  const msg=$('squashMsg').value.trim();
+  if(!msg||n<2){toast('커밋 수(2 이상)와 메시지를 입력하세요','err');return;}
+  $('ov-squash').classList.remove('show');
+  await jobModal(`Squash 최근 ${n}개 커밋`,'/api/squash',{n,message:msg});
+  await refresh(); loadHistory();
+}
+
+async function showCleanModal(){
+  $('cleanDirs').checked=false;
+  $('cleanPreview').textContent='미리보기 로딩 중...';
+  $('ov-clean').classList.add('show');
+  await refreshCleanPreview();
+}
+
+async function refreshCleanPreview(){
+  const dirs=$('cleanDirs').checked;
+  try{
+    const r=await postApi('/api/clean',{force:false,dirs});
+    $('cleanPreview').textContent=r.output||'(삭제할 파일 없음)';
+  }catch(e){$('cleanPreview').textContent='error: '+e.message;}
+}
+
+async function confirmClean(){
+  const dirs=$('cleanDirs').checked;
+  if(!await showConfirm('Untracked 파일을 영구 삭제합니다.\n\n되돌릴 수 없습니다.',
+    {title:'Clean 실행',okLabel:'삭제 실행',danger:true})) return;
+  $('ov-clean').classList.remove('show');
+  await jobModal('Clean','/api/clean',{force:true,dirs});
+  await refresh();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Bootstrap
+// ═══════════════════════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
