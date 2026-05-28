@@ -405,14 +405,21 @@ func (s *Server) handleCommits(w http.ResponseWriter, r *http.Request) {
 	if n == "" {
 		n = "200"
 	}
+	allBranches := r.URL.Query().Get("all") == "true"
+	branch := r.URL.Query().Get("branch")
+
 	format := "--pretty=format:%H|%h|%s|%an|%ae|%cd|%D|%P"
-	var out string
-	var err error
-	if n == "all" {
-		out, err = g.run("log", "--date=short", "--decorate=short", format)
-	} else {
-		out, err = g.run("log", "--date=short", "--decorate=short", format, "-n", n)
+	args := []string{"log", "--date=short", "--decorate=short", format}
+	if allBranches && branch == "" {
+		args = append(args, "--all")
 	}
+	if n != "all" {
+		args = append(args, "-n", n)
+	}
+	if branch != "" {
+		args = append(args, branch)
+	}
+	out, err := g.run(args...)
 	if err != nil {
 		jsonOK(w, []any{})
 		return

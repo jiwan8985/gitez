@@ -2591,9 +2591,13 @@ let graphCommits=[], selGraphCommit=null;
 
 async function loadGraph(){
   const n=$('graphCount').value;
-  const url=n==='all'?'/api/commits':'/api/commits?n='+n;
+  const br=$('graphBranch').value;
+  let url='/api/commits?all=true';
+  if(n!=='all') url+='&n='+n;
+  // Branch filter: reload with git log <branch> instead of client-side filtering
+  if(br) url='/api/commits?branch='+encodeURIComponent(br)+(n!=='all'?'&n='+n:'');
   try{
-    graphCommits=await api(url);
+    graphCommits=await api(apiQ(url));
     updateGraphBranchFilter();
     filterGraph();
   }catch(e){$('graphItems').innerHTML=`<div class="empty" style="color:var(--rd)">${esc(e.message)}</div>`;}
@@ -2602,33 +2606,19 @@ async function loadGraph(){
 function updateGraphBranchFilter(){
   const sel=$('graphBranch');
   const cur=sel.value;
-  const branches=new Set();
-  for(const c of graphCommits){
-    if(c.refs) parseRefs(c.refs).forEach(r=>{
-      if(r.startsWith('HEAD ->')){branches.add(r.replace('HEAD ->','').trim());}
-      else if(!r.includes('/')&&!r.startsWith('tag:')&&r){branches.add(r);}
-    });
-  }
+  const all=[...S.branches.local,...S.branches.remote];
   sel.innerHTML='<option value="">모든 브랜치</option>'+
-    [...branches].map(b=>`<option value="${esc(b)}"${b===cur?' selected':''}>${esc(b)}</option>`).join('');
+    all.map(b=>`<option value="${esc(b)}"${b===cur?' selected':''}>${esc(b)}</option>`).join('');
 }
 
 function filterGraph(){
   const q=($('fi-graph').value||'').toLowerCase();
-  const br=$('graphBranch').value;
   let fc=graphCommits;
   if(q) fc=fc.filter(c=>
     c.subject.toLowerCase().includes(q)||
     c.short.toLowerCase().includes(q)||
     c.author.toLowerCase().includes(q)
   );
-  if(br) fc=fc.filter(c=>{
-    const refs=parseRefs(c.refs||'');
-    return refs.some(r=>{
-      if(r.startsWith('HEAD ->')) return r.replace('HEAD ->','').trim()===br;
-      return r===br;
-    });
-  });
   renderGraphCommits(fc);
 }
 
